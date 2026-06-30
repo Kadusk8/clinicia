@@ -1,0 +1,17 @@
+{
+  "name": "@crm-clinicas/ai",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@crm-clinicas/db": "workspace:*",
+    "@crm-clinicas/shared": "workspace:*",
+    "drizzle-orm": "^0.38.3",
+    "openai": "^4.104.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

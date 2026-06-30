@@ -1,0 +1,18 @@
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+import * as schema from './schema/index';
+
+const connectionString = process.env.DATABASE_URL!;
+
+// For query purposes
+const queryClient = postgres(connectionString);
+export const db = drizzle(queryClient, { schema });
+
+// For migrations
+export function createMigrationClient() {
+  const migrationClient = postgres(connectionString, { max: 1 });
+  return drizzle(migrationClient, { schema });
+}
+
+export { schema };
+export type Database = typeof db;

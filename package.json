@@ -1,0 +1,29 @@
+{
+  "name": "crm-clinicas",
+  "private": true,
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "dev:api": "pnpm --filter @crm-clinicas/api dev",
+    "dev:web": "pnpm --filter @crm-clinicas/web dev",
+    "dev:worker": "pnpm --filter @crm-clinicas/worker dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "db:generate": "pnpm --filter @crm-clinicas/db generate",
+    "db:migrate": "pnpm --filter @crm-clinicas/db migrate",
+    "db:push": "pnpm --filter @crm-clinicas/db push",
+    "db:studio": "pnpm --filter @crm-clinicas/db studio",
+    "clean": "pnpm -r exec rm -rf node_modules dist .next .turbo"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}

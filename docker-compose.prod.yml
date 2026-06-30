@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  api:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-seu-usuario}/clinicia-api:latest
+    container_name: clinicia_api
+    restart: always
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+
+  web:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-seu-usuario}/clinicia-web:latest
+    container_name: clinicia_web
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+    depends_on:
+      - api
