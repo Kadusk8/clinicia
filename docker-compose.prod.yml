@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   api:
-    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-seu-usuario}/clinicia-api:latest
+    image: ghcr.io/kadusk8/clinicia-api:latest
     deploy:
       replicas: 1
       restart_policy:
@@ -17,7 +17,7 @@ services:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
   web:
-    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-seu-usuario}/clinicia-web:latest
+    image: ghcr.io/kadusk8/clinicia-web:latest
     deploy:
       replicas: 1
       restart_policy:
