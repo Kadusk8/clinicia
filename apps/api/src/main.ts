@@ -12,7 +12,11 @@ async function bootstrap() {
 
   // CORS
   app.enableCors({
-    origin: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+    origin: [
+      process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+      'https://clinicia.useia.api.br',
+      'http://localhost:3000',
+    ],
     credentials: true,
   });
 
