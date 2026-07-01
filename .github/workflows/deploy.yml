@@ -44,6 +44,14 @@ jobs:
           build-args: |
             NEXT_PUBLIC_API_URL=https://clinicia-api.useia.api.br
 
+      - name: Build and push Worker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./apps/worker/Dockerfile
+          push: true
+          tags: ghcr.io/${{ env.OWNER_LC }}/clinicia-worker:latest
+
   trigger-portainer:
     needs: build-and-push-image
     runs-on: ubuntu-latest

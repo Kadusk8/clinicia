@@ -4,10 +4,13 @@ import { eq, desc, sql, ilike, or } from 'drizzle-orm';
 import { NotFoundError } from '@crm-clinicas/shared';
 import { EvolutionClient } from '@crm-clinicas/evolution';
 import * as crypto from 'crypto';
+import { Scrypt } from 'oslo/password';
 
 function hashPassword(password: string): string {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
+
+const scrypt = new Scrypt();
 
 @Injectable()
 export class AdminService {
@@ -141,7 +144,6 @@ export class AdminService {
 
       const clinicId = clinic[0]!.id;
 
-      const ownerHash = hashPassword(data.ownerPassword);
       const owner = await tx
         .insert(schema.users)
         .values({
@@ -149,9 +151,19 @@ export class AdminService {
           email: data.ownerEmail,
           name: data.ownerName,
           role: 'owner',
-          passwordHash: ownerHash,
         })
         .returning();
+
+      const betterAuthHash = await scrypt.hash(data.ownerPassword);
+      await tx.insert(schema.account).values({
+        id: crypto.randomUUID(),
+        accountId: owner[0]!.id,
+        providerId: 'credential',
+        userId: owner[0]!.id,
+        password: betterAuthHash,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
       return { clinic: clinic[0]!, owner: owner[0]! };
     });
@@ -225,7 +237,7 @@ export class AdminService {
     if (data.evolutionApiUrl && data.evolutionApiKey && data.whatsappInstanceName) {
       try {
         const client = new EvolutionClient(data.evolutionApiUrl, data.evolutionApiKey);
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const apiUrl = process.env.API_BASE_URL || 'http://localhost:3001';
         const webhookUrl = `${apiUrl}/api/webhooks/evolution/${data.whatsappInstanceName}`;
         
         await client.setWebhook(data.whatsappInstanceName, webhookUrl, [

@@ -17,21 +17,17 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
-
-    const { data, error } = await authClient.signIn.email({
-      email,
-      password,
-    });
-
-    setLoading(false);
-
-    if (error) {
-      setError(error.message || 'Erro ao entrar. Verifique suas credenciais.');
-      return;
-    }
-
-    if (data) {
-      router.push('/');
+    try {
+      const { data, error } = await authClient.signIn.email({ email, password });
+      if (error) {
+        setError(error.message || 'Credenciais inválidas.');
+        return;
+      }
+      if (data) router.push('/');
+    } catch {
+      setError('Erro de conexão. Tente novamente.');
+    } finally {
+      setLoading(false);
     }
   };
 
