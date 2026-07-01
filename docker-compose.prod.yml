@@ -1,29 +1,76 @@
-version: '3.8'
-
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: clinicia_redis
+    restart: unless-stopped
+    volumes:
+      - clinicia_redis_data:/data
+    networks:
+      - caos
+
   api:
     image: ghcr.io/kadusk8/clinicia-api:latest
     container_name: clinicia_api
     restart: unless-stopped
-    ports:
-      - "3001:3001"
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
-      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
-      - BETTER_AUTH_URL=${BETTER_AUTH_URL}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - DATABASE_URL=postgresql://neondb_owner:npg_ig3mPGFA4COa@ep-divine-bird-adm0qs1t-pooler.c-2.us-east-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require
+      - REDIS_URL=redis://clinicia_redis:6379
+      - BETTER_AUTH_SECRET=317a1f39cd8d4fbd9f391f5b9d971929ad3086c0cbabc223cf23ed3c01a3d84e
+      - BETTER_AUTH_URL=https://clinicia-api.useia.api.br
+      - API_BASE_URL=https://clinicia-api.useia.api.br
+      - NEXT_PUBLIC_API_URL=https://clinicia-api.useia.api.br
+      - NEXT_PUBLIC_APP_URL=https://clinicia.useia.api.br
       - PORT=3001
+    networks:
+      - caos
+    depends_on:
+      - redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.clinicia-api.rule=Host(`clinicia-api.useia.api.br`)"
+      - "traefik.http.routers.clinicia-api.entrypoints=websecure"
+      - "traefik.http.routers.clinicia-api.tls.certresolver=letsencryptresolver"
+      - "traefik.http.services.clinicia-api.loadbalancer.server.port=3001"
 
   web:
     image: ghcr.io/kadusk8/clinicia-web:latest
     container_name: clinicia_web
     restart: unless-stopped
-    ports:
-      - "3000:3000"
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+      - NEXT_PUBLIC_API_URL=https://clinicia-api.useia.api.br
+      - NEXT_PUBLIC_APP_URL=https://clinicia.useia.api.br
+    networks:
+      - caos
+    depends_on:
+      - api
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.clinicia-web.rule=Host(`clinicia.useia.api.br`)"
+      - "traefik.http.routers.clinicia-web.entrypoints=websecure"
+      - "traefik.http.routers.clinicia-web.tls.certresolver=letsencryptresolver"
+      - "traefik.http.services.clinicia-web.loadbalancer.server.port=3000"
+
+  worker:
+    image: ghcr.io/kadusk8/clinicia-worker:latest
+    container_name: clinicia_worker
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://neondb_owner:npg_ig3mPGFA4COa@ep-divine-bird-adm0qs1t-pooler.c-2.us-east-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require
+      - REDIS_URL=redis://clinicia_redis:6379
+      # As chaves de LLM do agente são POR CLÍNICA (definidas ao criar/editar o agente).
+      # A linha abaixo é OPCIONAL e serve só para gerar embeddings da base de conhecimento (RAG).
+      # - OPENAI_API_KEY=sk-xxx
+    networks:
+      - caos
+    depends_on:
+      - redis
+
+networks:
+  caos:
+    external: true
+
+volumes:
+  clinicia_redis_data:
