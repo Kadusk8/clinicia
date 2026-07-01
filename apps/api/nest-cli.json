@@ -5,6 +5,7 @@
   "compilerOptions": {
     "deleteOutDir": true,
     "builder": "swc",
+    "webpack": true,
     "typeCheck": true
   }
 }
