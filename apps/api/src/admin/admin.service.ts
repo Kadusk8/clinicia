@@ -121,40 +121,40 @@ export class AdminService {
   }) {
     this.logger.log(`Creating clinic: ${data.name}`);
 
-    // Create clinic
-    const clinic = await db
-      .insert(schema.clinics)
-      .values({
-        name: data.name,
-        slug: data.slug,
-        type: data.type,
-        phone: data.phone,
-        email: data.email,
-        address: data.address,
-        plan: data.plan || 'trial',
-        agentConfig: data.agentConfig || {},
-        agentSystemPrompt: data.agentSystemPrompt,
-        agentKnowledgeBase: data.agentKnowledgeBase,
-        trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days
-      })
-      .returning();
+    return await db.transaction(async (tx) => {
+      const clinic = await tx
+        .insert(schema.clinics)
+        .values({
+          name: data.name,
+          slug: data.slug,
+          type: data.type,
+          phone: data.phone,
+          email: data.email,
+          address: data.address,
+          plan: data.plan || 'trial',
+          agentConfig: data.agentConfig || {},
+          agentSystemPrompt: data.agentSystemPrompt,
+          agentKnowledgeBase: data.agentKnowledgeBase,
+          trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+        })
+        .returning();
 
-    const clinicId = clinic[0]!.id;
+      const clinicId = clinic[0]!.id;
 
-    // Create owner user
-    const ownerHash = hashPassword(data.ownerPassword);
-    const owner = await db
-      .insert(schema.users)
-      .values({
-        clinicId,
-        email: data.ownerEmail,
-        name: data.ownerName,
-        role: 'owner',
-        passwordHash: ownerHash,
-      })
-      .returning();
+      const ownerHash = hashPassword(data.ownerPassword);
+      const owner = await tx
+        .insert(schema.users)
+        .values({
+          clinicId,
+          email: data.ownerEmail,
+          name: data.ownerName,
+          role: 'owner',
+          passwordHash: ownerHash,
+        })
+        .returning();
 
-    return { clinic: clinic[0]!, owner: owner[0]! };
+      return { clinic: clinic[0]!, owner: owner[0]! };
+    });
   }
 
   async updateClinic(id: string, data: Partial<schema.NewClinic>) {
