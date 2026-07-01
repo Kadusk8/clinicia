@@ -1,10 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { db, schema } from '@crm-clinicas/db';
 import { eq, and } from 'drizzle-orm';
 import { NotFoundError } from '@crm-clinicas/shared';
+import type { Queue } from 'bullmq';
 
 @Injectable()
 export class KnowledgeBaseService {
+  constructor(@Inject('EMBEDDING_QUEUE') private readonly embeddingQueue: Queue) {}
+
   async findAll(clinicId: string) {
     return db
       .select({
@@ -24,6 +27,14 @@ export class KnowledgeBaseService {
       .insert(schema.kbDocuments)
       .values({ clinicId, title, content, source })
       .returning();
+
+    // Enqueue embedding generation asynchronously
+    await this.embeddingQueue.add(
+      'process',
+      { documentId: doc!.id, clinicId },
+      { attempts: 3, backoff: { type: 'exponential', delay: 5000 } },
+    );
+
     return doc!;
   }
 

@@ -18,7 +18,11 @@ export class BillingController {
   ) {
     const expectedToken = process.env.ASAAS_WEBHOOK_TOKEN;
 
-    if (expectedToken && token !== expectedToken) {
+    if (!expectedToken) {
+      throw new UnauthorizedException('ASAAS_WEBHOOK_TOKEN not configured');
+    }
+
+    if (token !== expectedToken) {
       throw new UnauthorizedException('Invalid webhook token');
     }
 

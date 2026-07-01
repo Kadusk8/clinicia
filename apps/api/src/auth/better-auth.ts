@@ -9,7 +9,21 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
-  // Ensure that the auth cookie/session is aware of our domains
   baseURL: process.env.BETTER_AUTH_URL || 'http://localhost:3001',
   secret: process.env.BETTER_AUTH_SECRET || 'secret-key-for-dev-only',
+  user: {
+    // Expose clinicId and role in the session so TenantGuard can read request.user.clinicId
+    additionalFields: {
+      clinicId: {
+        type: 'string',
+        required: true,
+        fieldName: 'clinic_id',
+      },
+      role: {
+        type: 'string',
+        required: true,
+        fieldName: 'role',
+      },
+    },
+  },
 });

@@ -9,11 +9,6 @@ import type { AgentConfig } from '@crm-clinicas/shared';
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 const connection = new IORedis(REDIS_URL, { maxRetriesPerRequest: null });
 
-const evolutionClient = new EvolutionClient(
-  process.env.EVOLUTION_API_URL || 'http://localhost:8085',
-  process.env.EVOLUTION_API_KEY || 'evolution-api-key-dev',
-);
-
 // ==========================================
 // Follow-up message templates
 // ==========================================
@@ -141,9 +136,14 @@ const messageWorker = new Worker(
     // 7. Persist agent message
     await persistAgentMessage(conversationId, result.response, result.toolCalls);
 
-    // 8. Send via Evolution API
+    // 8. Send via Evolution Go using clinic-specific credentials
+    if (!clinic.evolutionApiUrl || !clinic.evolutionApiKey) {
+      console.error(`Clinic ${clinicId} has no Evolution Go credentials configured`);
+      return;
+    }
+    const clinicEvolutionClient = new EvolutionClient(clinic.evolutionApiUrl, clinic.evolutionApiKey);
     const phone = patientPhone.replace(/\D/g, '');
-    await evolutionClient.sendText({
+    await clinicEvolutionClient.sendText({
       instanceName: clinic.whatsappInstanceName!,
       remoteJid: phone,
       text: result.response,
@@ -240,10 +240,15 @@ const followUpWorker = new Worker(
       ? template(patientName, clinic.name, appointmentDate, serviceName)
       : `Olá ${patientName}! A ${clinic.name} tem uma mensagem para você.`;
 
-    // 5. Send via Evolution API
+    // 5. Send via Evolution Go using clinic-specific credentials
+    if (!clinic.evolutionApiUrl || !clinic.evolutionApiKey) {
+      console.log(`Clinic ${clinic.name} has no Evolution Go credentials, skipping`);
+      return;
+    }
+    const clinicEvolutionClient = new EvolutionClient(clinic.evolutionApiUrl, clinic.evolutionApiKey);
     try {
       const phone = patient.phone.replace(/\D/g, '');
-      await evolutionClient.sendText({
+      await clinicEvolutionClient.sendText({
         instanceName: clinic.whatsappInstanceName!,
         remoteJid: phone,
         text: message,

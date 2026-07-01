@@ -1,8 +1,19 @@
 import {
   Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, HttpCode, Inject,
+  ForbiddenException,
 } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { AdminService } from './admin.service';
 import { SuperAdminGuard } from './super-admin.guard';
+
+function signAdminToken(adminId: string): string {
+  const secret = process.env.BETTER_AUTH_SECRET;
+  if (!secret) throw new Error('BETTER_AUTH_SECRET not configured');
+  const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 8; // 8 hours
+  const payload = Buffer.from(JSON.stringify({ sub: adminId, exp })).toString('base64url');
+  const sig = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+  return `${payload}.${sig}`;
+}
 
 @Controller('admin')
 export class AdminController {
@@ -19,12 +30,15 @@ export class AdminController {
     if (!admin) {
       return { error: 'Credenciais inválidas' };
     }
-    // Return the admin ID as token (simplified)
-    return { token: admin.id, name: admin.name, email: admin.email };
+    const token = signAdminToken(admin.id);
+    return { token, name: admin.name, email: admin.email };
   }
 
   @Post('setup')
   async setup(@Body() body: { email: string; name: string; password: string }) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ForbiddenException('Setup endpoint is disabled in production');
+    }
     // Only works if no super admin exists yet
     const admin = await this.adminService.createSuperAdmin(body.email, body.name, body.password);
     return { id: admin.id, email: admin.email, name: admin.name };

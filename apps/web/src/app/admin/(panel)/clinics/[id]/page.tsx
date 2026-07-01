@@ -6,40 +6,90 @@ import { useParams, useRouter } from 'next/navigation';
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const tabs = ['Dados', 'Agente IA', 'WhatsApp', 'Estatísticas'];
 
+interface ClinicData {
+  id: string;
+  name: string;
+  slug: string;
+  type: string;
+  plan: string;
+  phone: string;
+  email: string;
+  address: string;
+  active: boolean;
+  whatsappConnected: boolean;
+  whatsappInstanceName: string;
+  evolutionApiUrl: string;
+  evolutionApiKey: string;
+  agentConfig: Record<string, string>;
+  agentSystemPrompt: string;
+  agentKnowledgeBase: string;
+  users?: Array<{ id: string; name: string; email: string; role: string }>;
+}
+
+interface Stats {
+  patients: number;
+  appointments: number;
+  conversations: number;
+  deals: number;
+}
+
 export default function EditClinicPage() {
   const { id } = useParams();
   const router = useRouter();
   const [tab, setTab] = useState(0);
-  const [clinic, setClinic] = useState<any>(null);
-  const [stats, setStats] = useState<any>(null);
+  const [clinic, setClinic] = useState<ClinicData | null>(null);
+  const [stats, setStats] = useState<Stats | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Tab 0 — Dados
+  const [form, setForm] = useState({ name: '', type: '', plan: '', phone: '', email: '', address: '' });
+  // Tab 1 — Agente IA
+  const [agentForm, setAgentForm] = useState({ assistantName: '', tone: '', greeting: '', agentSystemPrompt: '', agentKnowledgeBase: '' });
+  // Tab 2 — WhatsApp
+  const [waForm, setWaForm] = useState({ whatsappInstanceName: '', evolutionApiUrl: '', evolutionApiKey: '' });
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('admin_token') : null;
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
 
   useEffect(() => {
     if (!token) return;
-    fetch(`${API}/api/admin/clinics/${id}`, { headers }).then(r => r.json()).then(setClinic);
-    fetch(`${API}/api/admin/clinics/${id}/stats`, { headers }).then(r => r.json()).then(setStats);
-  }, [id]);
+    fetch(`${API}/api/admin/clinics/${id}`, { headers })
+      .then((r) => r.json())
+      .then((c: ClinicData) => {
+        setClinic(c);
+        setForm({ name: c.name ?? '', type: c.type ?? '', plan: c.plan ?? '', phone: c.phone ?? '', email: c.email ?? '', address: c.address ?? '' });
+        const cfg = c.agentConfig ?? {};
+        setAgentForm({ assistantName: cfg.assistantName ?? '', tone: cfg.tone ?? '', greeting: cfg.greeting ?? '', agentSystemPrompt: c.agentSystemPrompt ?? '', agentKnowledgeBase: c.agentKnowledgeBase ?? '' });
+        setWaForm({ whatsappInstanceName: c.whatsappInstanceName ?? '', evolutionApiUrl: c.evolutionApiUrl ?? '', evolutionApiKey: c.evolutionApiKey ?? '' });
+      });
+    fetch(`${API}/api/admin/clinics/${id}/stats`, { headers }).then((r) => r.json()).then(setStats);
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const save = async (data: any) => {
+  const save = async () => {
     setSaving(true);
-    await fetch(`${API}/api/admin/clinics/${id}`, { method: 'PUT', headers, body: JSON.stringify(data) });
+    await fetch(`${API}/api/admin/clinics/${id}`, { method: 'PUT', headers, body: JSON.stringify(form) });
     setSaving(false);
     alert('Salvo!');
   };
 
-  const saveAgent = async (data: any) => {
+  const saveAgent = async () => {
     setSaving(true);
-    await fetch(`${API}/api/admin/clinics/${id}/agent`, { method: 'PUT', headers, body: JSON.stringify(data) });
+    await fetch(`${API}/api/admin/clinics/${id}/agent`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify({
+        agentConfig: { assistantName: agentForm.assistantName, tone: agentForm.tone, greeting: agentForm.greeting },
+        agentSystemPrompt: agentForm.agentSystemPrompt,
+        agentKnowledgeBase: agentForm.agentKnowledgeBase,
+      }),
+    });
     setSaving(false);
     alert('Agente salvo!');
   };
 
-  const saveWhatsApp = async (data: any) => {
+  const saveWhatsApp = async () => {
     setSaving(true);
-    await fetch(`${API}/api/admin/clinics/${id}/whatsapp`, { method: 'PUT', headers, body: JSON.stringify(data) });
+    await fetch(`${API}/api/admin/clinics/${id}/whatsapp`, { method: 'PUT', headers, body: JSON.stringify(waForm) });
     setSaving(false);
     alert('Integração salva!');
   };
@@ -47,7 +97,6 @@ export default function EditClinicPage() {
   if (!clinic) return <div className="text-surface-400 p-8">Carregando...</div>;
 
   const inputCls = 'input bg-surface-800 border-surface-700 text-white placeholder-surface-500';
-  const agentCfg = clinic.agentConfig || {};
 
   return (
     <div className="animate-fade-in max-w-4xl mx-auto">
@@ -70,22 +119,48 @@ export default function EditClinicPage() {
         {tab === 0 && (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-white mb-4">Dados da Clínica</h2>
-            <div><label className="block text-sm font-medium text-surface-300 mb-1">Nome</label><input defaultValue={clinic.name} onBlur={(e) => (clinic.name = e.target.value)} className={inputCls} /></div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><label className="block text-sm font-medium text-surface-300 mb-1">Tipo</label><select defaultValue={clinic.type} onBlur={(e) => (clinic.type = e.target.value)} className={inputCls}><option value="medical">Médica</option><option value="dental">Odontológica</option><option value="other">Outra</option></select></div>
-              <div><label className="block text-sm font-medium text-surface-300 mb-1">Plano</label><select defaultValue={clinic.plan} onBlur={(e) => (clinic.plan = e.target.value)} className={inputCls}><option value="trial">Trial</option><option value="starter">Starter</option><option value="pro">Pro</option><option value="enterprise">Enterprise</option></select></div>
+            <div>
+              <label className="block text-sm font-medium text-surface-300 mb-1">Nome</label>
+              <input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} className={inputCls} />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div><label className="block text-sm font-medium text-surface-300 mb-1">Telefone</label><input defaultValue={clinic.phone} onBlur={(e) => (clinic.phone = e.target.value)} className={inputCls} /></div>
-              <div><label className="block text-sm font-medium text-surface-300 mb-1">E-mail</label><input defaultValue={clinic.email} onBlur={(e) => (clinic.email = e.target.value)} className={inputCls} /></div>
+              <div>
+                <label className="block text-sm font-medium text-surface-300 mb-1">Tipo</label>
+                <select value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))} className={inputCls}>
+                  <option value="medical">Médica</option>
+                  <option value="dental">Odontológica</option>
+                  <option value="other">Outra</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-surface-300 mb-1">Plano</label>
+                <select value={form.plan} onChange={(e) => setForm((p) => ({ ...p, plan: e.target.value }))} className={inputCls}>
+                  <option value="trial">Trial</option>
+                  <option value="starter">Starter</option>
+                  <option value="pro">Pro</option>
+                  <option value="enterprise">Enterprise</option>
+                </select>
+              </div>
             </div>
-            <div><label className="block text-sm font-medium text-surface-300 mb-1">Endereço</label><input defaultValue={clinic.address} onBlur={(e) => (clinic.address = e.target.value)} className={inputCls} /></div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-surface-300 mb-1">Telefone</label>
+                <input value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-surface-300 mb-1">E-mail</label>
+                <input value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} className={inputCls} />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-surface-300 mb-1">Endereço</label>
+              <input value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} className={inputCls} />
+            </div>
 
-            {/* Users */}
-            {clinic.users?.length > 0 && (
+            {clinic.users && clinic.users.length > 0 && (
               <div className="mt-6">
                 <h3 className="text-sm font-semibold text-surface-400 uppercase mb-3">Usuários</h3>
-                {clinic.users.map((u: any) => (
+                {clinic.users.map((u) => (
                   <div key={u.id} className="flex items-center gap-3 bg-surface-800 rounded-xl p-3 mb-2">
                     <div className="w-8 h-8 bg-primary-500/20 rounded-full flex items-center justify-center text-primary-300 text-sm font-bold">{u.name[0]}</div>
                     <div><p className="text-white text-sm">{u.name}</p><p className="text-surface-500 text-xs">{u.email} · {u.role}</p></div>
@@ -94,34 +169,70 @@ export default function EditClinicPage() {
               </div>
             )}
 
-            <button onClick={() => save({ name: clinic.name, type: clinic.type, plan: clinic.plan, phone: clinic.phone, email: clinic.email, address: clinic.address })} disabled={saving} className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-orange-500 text-white font-semibold rounded-xl disabled:opacity-50 transition-all mt-4">{saving ? 'Salvando...' : 'Salvar Dados'}</button>
+            <button onClick={save} disabled={saving} className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-orange-500 text-white font-semibold rounded-xl disabled:opacity-50 transition-all mt-4">
+              {saving ? 'Salvando...' : 'Salvar Dados'}
+            </button>
           </div>
         )}
 
         {tab === 1 && (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-white mb-4">Agente IA</h2>
-            <div><label className="block text-sm font-medium text-surface-300 mb-1">Nome da assistente</label><input defaultValue={agentCfg.assistantName} onBlur={(e) => (agentCfg.assistantName = e.target.value)} className={inputCls} placeholder="Ana" /></div>
-            <div><label className="block text-sm font-medium text-surface-300 mb-1">Tom</label><select defaultValue={agentCfg.tone} onBlur={(e) => (agentCfg.tone = e.target.value)} className={inputCls}><option value="profissional_amigavel">Profissional e amigável</option><option value="formal">Formal</option><option value="casual">Casual</option><option value="tecnico">Técnico</option></select></div>
-            <div><label className="block text-sm font-medium text-surface-300 mb-1">Boas-vindas</label><textarea defaultValue={agentCfg.greeting} onBlur={(e) => (agentCfg.greeting = e.target.value)} className={`${inputCls} min-h-[80px]`} /></div>
-            <div><label className="block text-sm font-medium text-surface-300 mb-1">System prompt</label><textarea defaultValue={clinic.agentSystemPrompt} onBlur={(e) => (clinic.agentSystemPrompt = e.target.value)} className={`${inputCls} min-h-[120px]`} /></div>
-            <div><label className="block text-sm font-medium text-surface-300 mb-1">Base de conhecimento</label><textarea defaultValue={clinic.agentKnowledgeBase} onBlur={(e) => (clinic.agentKnowledgeBase = e.target.value)} className={`${inputCls} min-h-[120px]`} /></div>
-            <button onClick={() => saveAgent({ agentConfig: agentCfg, agentSystemPrompt: clinic.agentSystemPrompt, agentKnowledgeBase: clinic.agentKnowledgeBase })} disabled={saving} className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-orange-500 text-white font-semibold rounded-xl disabled:opacity-50 transition-all">{saving ? 'Salvando...' : 'Salvar Agente'}</button>
+            <div>
+              <label className="block text-sm font-medium text-surface-300 mb-1">Nome da assistente</label>
+              <input value={agentForm.assistantName} onChange={(e) => setAgentForm((p) => ({ ...p, assistantName: e.target.value }))} className={inputCls} placeholder="Ana" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-surface-300 mb-1">Tom</label>
+              <select value={agentForm.tone} onChange={(e) => setAgentForm((p) => ({ ...p, tone: e.target.value }))} className={inputCls}>
+                <option value="profissional_amigavel">Profissional e amigável</option>
+                <option value="formal">Formal</option>
+                <option value="casual">Casual</option>
+                <option value="tecnico">Técnico</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-surface-300 mb-1">Boas-vindas</label>
+              <textarea value={agentForm.greeting} onChange={(e) => setAgentForm((p) => ({ ...p, greeting: e.target.value }))} className={`${inputCls} min-h-[80px]`} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-surface-300 mb-1">System prompt</label>
+              <textarea value={agentForm.agentSystemPrompt} onChange={(e) => setAgentForm((p) => ({ ...p, agentSystemPrompt: e.target.value }))} className={`${inputCls} min-h-[120px]`} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-surface-300 mb-1">Base de conhecimento</label>
+              <textarea value={agentForm.agentKnowledgeBase} onChange={(e) => setAgentForm((p) => ({ ...p, agentKnowledgeBase: e.target.value }))} className={`${inputCls} min-h-[120px]`} />
+            </div>
+            <button onClick={saveAgent} disabled={saving} className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-orange-500 text-white font-semibold rounded-xl disabled:opacity-50 transition-all">
+              {saving ? 'Salvando...' : 'Salvar Agente'}
+            </button>
           </div>
         )}
 
         {tab === 2 && (
           <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-white mb-4">WhatsApp (Evolution API)</h2>
+            <h2 className="text-xl font-semibold text-white mb-4">WhatsApp (Evolution Go)</h2>
             <div className={`p-4 rounded-xl border ${clinic.whatsappConnected ? 'bg-accent-500/10 border-accent-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
-              <p className={`font-medium ${clinic.whatsappConnected ? 'text-accent-300' : 'text-amber-300'}`}>{clinic.whatsappConnected ? '✅ WhatsApp conectado' : '⚠️ WhatsApp desconectado'}</p>
+              <p className={`font-medium ${clinic.whatsappConnected ? 'text-accent-300' : 'text-amber-300'}`}>
+                {clinic.whatsappConnected ? '✅ WhatsApp conectado' : '⚠️ WhatsApp desconectado'}
+              </p>
               {clinic.whatsappInstanceName && <p className="text-surface-400 text-sm mt-1">Instância: {clinic.whatsappInstanceName}</p>}
             </div>
-            <div><label className="block text-sm font-medium text-surface-300 mb-1">Nome da instância Evolution</label><input defaultValue={clinic.whatsappInstanceName} onBlur={(e) => (clinic.whatsappInstanceName = e.target.value)} className={inputCls} placeholder="clinica-sorriso" /></div>
-            <div><label className="block text-sm font-medium text-surface-300 mb-1">URL da API (Evolution Go)</label><input defaultValue={clinic.evolutionApiUrl} onBlur={(e) => (clinic.evolutionApiUrl = e.target.value)} className={inputCls} placeholder="https://evolution.sua-clinica.com" /></div>
-            <div><label className="block text-sm font-medium text-surface-300 mb-1">API Key da Instância (Token)</label><input defaultValue={clinic.evolutionApiKey} onBlur={(e) => (clinic.evolutionApiKey = e.target.value)} className={inputCls} placeholder="Token da instância..." type="password" /></div>
-            <button onClick={() => saveWhatsApp({ whatsappInstanceName: clinic.whatsappInstanceName, evolutionApiUrl: clinic.evolutionApiUrl, evolutionApiKey: clinic.evolutionApiKey })} disabled={saving} className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-orange-500 text-white font-semibold rounded-xl disabled:opacity-50 transition-all mt-4">{saving ? 'Salvando...' : 'Salvar Integração'}</button>
-            <p className="text-surface-500 text-sm mt-4">A conexão com o WhatsApp via QR Code será implementada na integração com a Evolution API.</p>
+            <div>
+              <label className="block text-sm font-medium text-surface-300 mb-1">Nome da instância</label>
+              <input value={waForm.whatsappInstanceName} onChange={(e) => setWaForm((p) => ({ ...p, whatsappInstanceName: e.target.value }))} className={inputCls} placeholder="clinica-sorriso" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-surface-300 mb-1">URL da Evolution Go</label>
+              <input value={waForm.evolutionApiUrl} onChange={(e) => setWaForm((p) => ({ ...p, evolutionApiUrl: e.target.value }))} className={inputCls} placeholder="https://evolution.sua-clinica.com" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-surface-300 mb-1">API Key da Instância</label>
+              <input value={waForm.evolutionApiKey} onChange={(e) => setWaForm((p) => ({ ...p, evolutionApiKey: e.target.value }))} className={inputCls} placeholder="Token da instância..." type="password" />
+            </div>
+            <button onClick={saveWhatsApp} disabled={saving} className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-orange-500 text-white font-semibold rounded-xl disabled:opacity-50 transition-all mt-4">
+              {saving ? 'Salvando...' : 'Salvar Integração'}
+            </button>
           </div>
         )}
 

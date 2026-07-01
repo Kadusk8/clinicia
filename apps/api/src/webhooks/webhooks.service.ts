@@ -10,6 +10,15 @@ export class WebhooksService {
 
   constructor(@Inject('MESSAGE_QUEUE') private readonly messageQueue: Queue) {}
 
+  async getClinicApiKey(instanceName: string): Promise<string | null> {
+    const [clinic] = await db
+      .select({ evolutionApiKey: schema.clinics.evolutionApiKey })
+      .from(schema.clinics)
+      .where(eq(schema.clinics.whatsappInstanceName, instanceName))
+      .limit(1);
+    return clinic?.evolutionApiKey ?? null;
+  }
+
   async processEvolutionWebhook(instanceName: string, payload: WebhookPayload) {
     this.logger.log(`Webhook received for instance: ${instanceName}, event: ${payload.event}`);
 

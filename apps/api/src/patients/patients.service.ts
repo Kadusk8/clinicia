@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { db, schema } from '@crm-clinicas/db';
-import { eq, and, ilike, sql, desc } from 'drizzle-orm';
+import { eq, and, ilike, or, sql, desc } from 'drizzle-orm';
 import { NotFoundError, type PaginationInput } from '@crm-clinicas/shared';
 
 @Injectable()
@@ -12,7 +12,11 @@ export class PatientsService {
     const conditions = [eq(schema.patients.clinicId, clinicId)];
     if (search) {
       conditions.push(
-        ilike(schema.patients.name, `%${search}%`),
+        or(
+          ilike(schema.patients.name, `%${search}%`),
+          ilike(schema.patients.phone, `%${search}%`),
+          ilike(schema.patients.email, `%${search}%`),
+        )!,
       );
     }
 

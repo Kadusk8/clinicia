@@ -6,10 +6,6 @@ import { EvolutionClient } from '@crm-clinicas/evolution';
 
 @Injectable()
 export class ConversationsService {
-  private readonly evolutionClient = new EvolutionClient(
-    process.env.EVOLUTION_API_URL || 'http://localhost:8085',
-    process.env.EVOLUTION_API_KEY || 'evolution-api-key-dev',
-  );
 
   async findAll(clinicId: string, pagination: PaginationInput) {
     const { page, pageSize } = pagination;
@@ -164,10 +160,11 @@ export class ConversationsService {
       content,
     });
 
-    // Send via Evolution API if WhatsApp is configured
-    if (clinic?.whatsappInstanceName && conversation.externalId) {
+    // Send via Evolution Go if WhatsApp is configured for this clinic
+    if (clinic?.whatsappInstanceName && clinic.evolutionApiUrl && clinic.evolutionApiKey && conversation.externalId) {
+      const client = new EvolutionClient(clinic.evolutionApiUrl, clinic.evolutionApiKey);
       const phone = conversation.externalId.replace(/\D/g, '');
-      await this.evolutionClient.sendText({
+      await client.sendText({
         instanceName: clinic.whatsappInstanceName,
         remoteJid: phone,
         text: content,

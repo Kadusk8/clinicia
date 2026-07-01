@@ -22,8 +22,6 @@ export class AuthService {
     return result[0] || null;
   }
 
-  // TODO: Implement Better Auth integration
-  // - login / register
-  // - session management
-  // - clinicId in context
+  // Better Auth integration is handled directly in AuthController via toNodeHandler(auth).
+  // These methods are utility helpers available for other services.
 }
