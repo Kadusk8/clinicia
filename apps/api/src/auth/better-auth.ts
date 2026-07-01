@@ -11,6 +11,18 @@ export const auth = betterAuth({
   },
   baseURL: process.env.BETTER_AUTH_URL || 'http://localhost:3001',
   secret: process.env.BETTER_AUTH_SECRET || 'secret-key-for-dev-only',
+  trustedOrigins: [
+    process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+    'https://clinicia.useia.api.br',
+    'http://localhost:3000',
+  ],
+  advanced:
+    process.env.NODE_ENV === 'production'
+      ? {
+          crossSubDomainCookies: { enabled: true, domain: '.useia.api.br' },
+          defaultCookieAttributes: { sameSite: 'none', secure: true },
+        }
+      : undefined,
   user: {
     // Expose clinicId and role in the session so TenantGuard can read request.user.clinicId
     additionalFields: {
