@@ -3,26 +3,36 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { authClient } from '@/lib/auth-client';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const [error, setError] = useState('');
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // TODO: Implement login with Better Auth
-    setTimeout(() => {
-      setLoading(false);
-      if (email === 'kadu@kadudeoliveira.com.br' && password === 'K@dusk88##') {
-        router.push('/');
-      } else {
-        alert('Credenciais incorretas!');
-      }
-    }, 1000);
+    setError('');
+
+    const { data, error } = await authClient.signIn.email({
+      email,
+      password,
+    });
+
+    setLoading(false);
+
+    if (error) {
+      setError(error.message || 'Erro ao entrar. Verifique suas credenciais.');
+      return;
+    }
+
+    if (data) {
+      router.push('/');
+    }
   };
 
   return (
@@ -43,6 +53,12 @@ export default function LoginPage() {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="glass-dark rounded-2xl p-8 space-y-5">
+          {error && (
+            <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-xl text-red-300 text-sm">
+              {error}
+            </div>
+          )}
+
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-surface-300 mb-2">
               E-mail

@@ -10,3 +10,4 @@ export * from './follow-ups';
 export * from './knowledge-base';
 export * from './audit-log';
 export * from './super-admins';
+export * from './auth';
