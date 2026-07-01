@@ -6,6 +6,8 @@ RUN corepack enable
 FROM base AS builder
 WORKDIR /app
 COPY . .
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @crm-clinicas/web build
 
