@@ -44,7 +44,7 @@ export default function EditClinicPage() {
   // Tab 0 — Dados
   const [form, setForm] = useState({ name: '', type: '', plan: '', phone: '', email: '', address: '' });
   // Tab 1 — Agente IA
-  const [agentForm, setAgentForm] = useState({ assistantName: '', tone: '', greeting: '', agentSystemPrompt: '', agentKnowledgeBase: '', provider: 'anthropic', model: 'claude-sonnet-4-5-20250514' });
+  const [agentForm, setAgentForm] = useState({ assistantName: '', tone: '', greeting: '', agentSystemPrompt: '', agentKnowledgeBase: '', provider: 'anthropic', model: 'claude-sonnet-4-5-20250514', apiKey: '' });
   // Tab 2 — WhatsApp
   const [waForm, setWaForm] = useState({ whatsappInstanceName: '', evolutionApiUrl: '', evolutionApiKey: '' });
 
@@ -59,7 +59,7 @@ export default function EditClinicPage() {
         setClinic(c);
         setForm({ name: c.name ?? '', type: c.type ?? '', plan: c.plan ?? '', phone: c.phone ?? '', email: c.email ?? '', address: c.address ?? '' });
         const cfg = c.agentConfig ?? {};
-        setAgentForm({ assistantName: cfg.assistantName ?? '', tone: cfg.tone ?? '', greeting: cfg.greeting ?? '', agentSystemPrompt: c.agentSystemPrompt ?? '', agentKnowledgeBase: c.agentKnowledgeBase ?? '', provider: cfg.provider ?? 'anthropic', model: cfg.model ?? 'claude-sonnet-4-5-20250514' });
+        setAgentForm({ assistantName: cfg.assistantName ?? '', tone: cfg.tone ?? '', greeting: cfg.greeting ?? '', agentSystemPrompt: c.agentSystemPrompt ?? '', agentKnowledgeBase: c.agentKnowledgeBase ?? '', provider: cfg.provider ?? 'anthropic', model: cfg.model ?? 'claude-sonnet-4-5-20250514', apiKey: cfg.apiKey ?? '' });
         setWaForm({ whatsappInstanceName: c.whatsappInstanceName ?? '', evolutionApiUrl: c.evolutionApiUrl ?? '', evolutionApiKey: c.evolutionApiKey ?? '' });
       });
     fetch(`${API}/api/admin/clinics/${id}/stats`, { headers }).then((r) => r.json()).then(setStats);
@@ -78,7 +78,7 @@ export default function EditClinicPage() {
       method: 'PUT',
       headers,
       body: JSON.stringify({
-        agentConfig: { assistantName: agentForm.assistantName, tone: agentForm.tone, greeting: agentForm.greeting, provider: agentForm.provider, model: agentForm.model },
+        agentConfig: { assistantName: agentForm.assistantName, tone: agentForm.tone, greeting: agentForm.greeting, provider: agentForm.provider, model: agentForm.model, apiKey: agentForm.apiKey },
         agentSystemPrompt: agentForm.agentSystemPrompt,
         agentKnowledgeBase: agentForm.agentKnowledgeBase,
       }),
@@ -262,7 +262,23 @@ export default function EditClinicPage() {
                 )}
               </div>
             </div>
-            <p className="text-xs text-surface-500">Cada provedor requer a API key configurada nas variáveis de ambiente do worker.</p>
+            <div>
+              <label className="block text-sm font-medium text-surface-300 mb-1">API Key do provedor</label>
+              <input
+                type="password"
+                value={agentForm.apiKey}
+                onChange={(e) => setAgentForm((p) => ({ ...p, apiKey: e.target.value }))}
+                className={inputCls}
+                placeholder={
+                  agentForm.provider === 'anthropic' ? 'sk-ant-...'
+                  : agentForm.provider === 'openai' ? 'sk-...'
+                  : agentForm.provider === 'google' ? 'AIza...'
+                  : 'sk-or-...'
+                }
+                autoComplete="off"
+              />
+              <p className="text-xs text-surface-500 mt-1">Cada clínica usa sua própria chave. A chave é armazenada na configuração do agente e usada pelo worker para esta clínica.</p>
+            </div>
             <button onClick={saveAgent} disabled={saving} className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-orange-500 text-white font-semibold rounded-xl disabled:opacity-50 transition-all">
               {saving ? 'Salvando...' : 'Salvar Agente'}
             </button>

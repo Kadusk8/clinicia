@@ -86,6 +86,7 @@ export interface AgentConfig {
   customInstructions?: string;
   provider?: string;
   model?: string;
+  apiKey?: string;
   tone?: string;
 }
 

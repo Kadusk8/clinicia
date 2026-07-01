@@ -116,18 +116,18 @@ async function processAnthropic(
 // OpenAI-compatible path (OpenAI, Google, OpenRouter)
 // ==========================================
 
-function buildOpenAIClient(provider: string, keys: AgentKeys): OpenAI {
+function buildOpenAIClient(provider: string, apiKey: string): OpenAI {
   switch (provider) {
     case 'openai':
-      return new OpenAI({ apiKey: keys.openaiApiKey });
+      return new OpenAI({ apiKey });
     case 'google':
       return new OpenAI({
-        apiKey: keys.googleApiKey,
+        apiKey,
         baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
       });
     case 'openrouter':
       return new OpenAI({
-        apiKey: keys.openrouterApiKey,
+        apiKey,
         baseURL: 'https://openrouter.ai/api/v1',
         defaultHeaders: { 'HTTP-Referer': 'https://clinicia.app', 'X-Title': 'ClinicIA' },
       });
@@ -142,9 +142,9 @@ async function processOpenAICompatible(
   handleToolCall: ToolHandler,
   model: string,
   provider: string,
-  keys: AgentKeys,
+  apiKey: string,
 ): Promise<AgentResult> {
-  const client = buildOpenAIClient(provider, keys);
+  const client = buildOpenAIClient(provider, apiKey);
   const systemPrompt = buildSystemPrompt(context);
   const collected: AgentResult['toolCalls'] = [];
   const openAITools = toOpenAITools();
@@ -202,12 +202,27 @@ export function createAgent(keys: AgentKeys) {
     const provider = context.clinicConfig.provider || 'anthropic';
     const model = context.clinicConfig.model || 'claude-sonnet-4-5-20250514';
 
+    // Per-clinic API key takes precedence; env keys are only a fallback.
+    const clinicKey = context.clinicConfig.apiKey?.trim();
+
     if (provider === 'anthropic') {
-      if (!keys.anthropicApiKey) throw new Error('ANTHROPIC_API_KEY não configurada');
-      return processAnthropic(context, messageHistory, handleToolCall, model, keys.anthropicApiKey);
+      const apiKey = clinicKey || keys.anthropicApiKey;
+      if (!apiKey) throw new Error('API key da Anthropic não configurada para esta clínica');
+      return processAnthropic(context, messageHistory, handleToolCall, model, apiKey);
     }
 
-    return processOpenAICompatible(context, messageHistory, handleToolCall, model, provider, keys);
+    const fallback =
+      provider === 'openai'
+        ? keys.openaiApiKey
+        : provider === 'google'
+          ? keys.googleApiKey
+          : provider === 'openrouter'
+            ? keys.openrouterApiKey
+            : undefined;
+    const apiKey = clinicKey || fallback;
+    if (!apiKey) throw new Error(`API key do provedor "${provider}" não configurada para esta clínica`);
+
+    return processOpenAICompatible(context, messageHistory, handleToolCall, model, provider, apiKey);
   }
 
   return { processConversation };
