@@ -199,8 +199,9 @@ export class AdminService {
     await db.delete(schema.services).where(eq(schema.services.clinicId, id));
     await db.delete(schema.auditLog).where(eq(schema.auditLog.clinicId, id));
 
-    // Delete account entries (FK → users.id, no cascade)
+    // Delete session + account entries (FK → users.id, no cascade)
     for (const u of clinicUsers) {
+      await db.delete(schema.session).where(eq(schema.session.userId, u.id));
       await db.delete(schema.account).where(eq(schema.account.userId, u.id));
     }
     await db.delete(schema.users).where(eq(schema.users.clinicId, id));

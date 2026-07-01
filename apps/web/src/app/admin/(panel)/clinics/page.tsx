@@ -70,10 +70,15 @@ export default function ClinicsListPage() {
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Tem certeza que deseja EXCLUIR "${name}" e todos os dados? Esta ação é irreversível!`)) return;
     const token = localStorage.getItem('admin_token');
-    await fetch(`${API}/api/admin/clinics/${id}`, {
+    const res = await fetch(`${API}/api/admin/clinics/${id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({} as any));
+      alert(`Erro ao excluir: ${e.message || e.error?.message || res.status}`);
+      return;
+    }
     fetchClinics();
   };
 
