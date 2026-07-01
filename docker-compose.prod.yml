@@ -3,27 +3,27 @@ version: '3.8'
 services:
   api:
     image: ghcr.io/kadusk8/clinicia-api:latest
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: any
+    container_name: clinicia_api
+    restart: unless-stopped
     ports:
       - "3001:3001"
     environment:
       - NODE_ENV=production
       - DATABASE_URL=${DATABASE_URL}
-      - JWT_SECRET=${JWT_SECRET}
+      - REDIS_URL=${REDIS_URL}
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - PORT=3001
 
   web:
     image: ghcr.io/kadusk8/clinicia-web:latest
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: any
+    container_name: clinicia_web
+    restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
