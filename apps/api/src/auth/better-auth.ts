@@ -1,10 +1,19 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { db } from '@crm-clinicas/db';
+import { db, schema } from '@crm-clinicas/db';
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: 'pg',
+    // Our tables use custom names (users plural, others singular). Map Better
+    // Auth models to the actual Drizzle tables, otherwise schema['user'] is
+    // undefined and every sign-in throws (500).
+    schema: {
+      user: schema.users,
+      session: schema.session,
+      account: schema.account,
+      verification: schema.verification,
+    },
   }),
   emailAndPassword: {
     enabled: true,
