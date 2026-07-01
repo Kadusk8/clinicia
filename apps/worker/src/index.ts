@@ -110,13 +110,12 @@ const messageWorker = new Worker(
     };
 
     // 5. Run agent
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      console.error('ANTHROPIC_API_KEY not set');
-      return;
-    }
-
-    const agent = createAgent(apiKey);
+    const agent = createAgent({
+      anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+      openaiApiKey: process.env.OPENAI_API_KEY,
+      googleApiKey: process.env.GOOGLE_AI_API_KEY,
+      openrouterApiKey: process.env.OPENROUTER_API_KEY,
+    });
     const result = await agent.processConversation(context, messageHistory, (name, input, ctx) =>
       executeToolCall(name, input, {
         clinicId: ctx.clinicId,

@@ -44,7 +44,7 @@ export default function EditClinicPage() {
   // Tab 0 — Dados
   const [form, setForm] = useState({ name: '', type: '', plan: '', phone: '', email: '', address: '' });
   // Tab 1 — Agente IA
-  const [agentForm, setAgentForm] = useState({ assistantName: '', tone: '', greeting: '', agentSystemPrompt: '', agentKnowledgeBase: '', model: 'claude-sonnet-4-5-20250514' });
+  const [agentForm, setAgentForm] = useState({ assistantName: '', tone: '', greeting: '', agentSystemPrompt: '', agentKnowledgeBase: '', provider: 'anthropic', model: 'claude-sonnet-4-5-20250514' });
   // Tab 2 — WhatsApp
   const [waForm, setWaForm] = useState({ whatsappInstanceName: '', evolutionApiUrl: '', evolutionApiKey: '' });
 
@@ -59,7 +59,7 @@ export default function EditClinicPage() {
         setClinic(c);
         setForm({ name: c.name ?? '', type: c.type ?? '', plan: c.plan ?? '', phone: c.phone ?? '', email: c.email ?? '', address: c.address ?? '' });
         const cfg = c.agentConfig ?? {};
-        setAgentForm({ assistantName: cfg.assistantName ?? '', tone: cfg.tone ?? '', greeting: cfg.greeting ?? '', agentSystemPrompt: c.agentSystemPrompt ?? '', agentKnowledgeBase: c.agentKnowledgeBase ?? '', model: cfg.model ?? 'claude-sonnet-4-5-20250514' });
+        setAgentForm({ assistantName: cfg.assistantName ?? '', tone: cfg.tone ?? '', greeting: cfg.greeting ?? '', agentSystemPrompt: c.agentSystemPrompt ?? '', agentKnowledgeBase: c.agentKnowledgeBase ?? '', provider: cfg.provider ?? 'anthropic', model: cfg.model ?? 'claude-sonnet-4-5-20250514' });
         setWaForm({ whatsappInstanceName: c.whatsappInstanceName ?? '', evolutionApiUrl: c.evolutionApiUrl ?? '', evolutionApiKey: c.evolutionApiKey ?? '' });
       });
     fetch(`${API}/api/admin/clinics/${id}/stats`, { headers }).then((r) => r.json()).then(setStats);
@@ -78,7 +78,7 @@ export default function EditClinicPage() {
       method: 'PUT',
       headers,
       body: JSON.stringify({
-        agentConfig: { assistantName: agentForm.assistantName, tone: agentForm.tone, greeting: agentForm.greeting, model: agentForm.model },
+        agentConfig: { assistantName: agentForm.assistantName, tone: agentForm.tone, greeting: agentForm.greeting, provider: agentForm.provider, model: agentForm.model },
         agentSystemPrompt: agentForm.agentSystemPrompt,
         agentKnowledgeBase: agentForm.agentKnowledgeBase,
       }),
@@ -203,16 +203,66 @@ export default function EditClinicPage() {
               <label className="block text-sm font-medium text-surface-300 mb-1">Base de conhecimento</label>
               <textarea value={agentForm.agentKnowledgeBase} onChange={(e) => setAgentForm((p) => ({ ...p, agentKnowledgeBase: e.target.value }))} className={`${inputCls} min-h-[120px]`} />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-surface-300 mb-1">Modelo LLM</label>
-              <select value={agentForm.model} onChange={(e) => setAgentForm((p) => ({ ...p, model: e.target.value }))} className={inputCls}>
-                <option value="claude-sonnet-4-5-20250514">Claude Sonnet 4.5 (padrão)</option>
-                <option value="claude-sonnet-5">Claude Sonnet 5 (recomendado)</option>
-                <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 (rápido / econômico)</option>
-                <option value="claude-opus-4-8">Claude Opus 4.8 (máxima capacidade)</option>
-              </select>
-              <p className="text-xs text-surface-500 mt-1">Modelos mais avançados custam mais por mensagem.</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-surface-300 mb-1">Provedor LLM</label>
+                <select
+                  value={agentForm.provider}
+                  onChange={(e) => {
+                    const defaultModels: Record<string, string> = {
+                      anthropic: 'claude-sonnet-4-5-20250514',
+                      openai: 'gpt-4o',
+                      google: 'gemini-2.0-flash',
+                      openrouter: 'anthropic/claude-sonnet-4-5',
+                    };
+                    setAgentForm((p) => ({ ...p, provider: e.target.value, model: defaultModels[e.target.value] ?? '' }));
+                  }}
+                  className={inputCls}
+                >
+                  <option value="anthropic">Anthropic (Claude)</option>
+                  <option value="openai">OpenAI (GPT)</option>
+                  <option value="google">Google (Gemini)</option>
+                  <option value="openrouter">OpenRouter</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-surface-300 mb-1">Modelo</label>
+                {agentForm.provider === 'anthropic' && (
+                  <select value={agentForm.model} onChange={(e) => setAgentForm((p) => ({ ...p, model: e.target.value }))} className={inputCls}>
+                    <option value="claude-sonnet-4-5-20250514">Sonnet 4.5 (padrão)</option>
+                    <option value="claude-sonnet-5">Sonnet 5</option>
+                    <option value="claude-haiku-4-5-20251001">Haiku 4.5 (econômico)</option>
+                    <option value="claude-opus-4-8">Opus 4.8 (máximo)</option>
+                  </select>
+                )}
+                {agentForm.provider === 'openai' && (
+                  <select value={agentForm.model} onChange={(e) => setAgentForm((p) => ({ ...p, model: e.target.value }))} className={inputCls}>
+                    <option value="gpt-4o">GPT-4o</option>
+                    <option value="gpt-4.1">GPT-4.1</option>
+                    <option value="gpt-4o-mini">GPT-4o Mini (econômico)</option>
+                    <option value="o3-mini">o3 Mini</option>
+                  </select>
+                )}
+                {agentForm.provider === 'google' && (
+                  <select value={agentForm.model} onChange={(e) => setAgentForm((p) => ({ ...p, model: e.target.value }))} className={inputCls}>
+                    <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                    <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                    <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                    <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                    <option value="gemini-1.5-flash">Gemini 1.5 Flash (econômico)</option>
+                  </select>
+                )}
+                {agentForm.provider === 'openrouter' && (
+                  <input
+                    value={agentForm.model}
+                    onChange={(e) => setAgentForm((p) => ({ ...p, model: e.target.value }))}
+                    className={inputCls}
+                    placeholder="ex: anthropic/claude-sonnet-4-5"
+                  />
+                )}
+              </div>
             </div>
+            <p className="text-xs text-surface-500">Cada provedor requer a API key configurada nas variáveis de ambiente do worker.</p>
             <button onClick={saveAgent} disabled={saving} className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-orange-500 text-white font-semibold rounded-xl disabled:opacity-50 transition-all">
               {saving ? 'Salvando...' : 'Salvar Agente'}
             </button>
