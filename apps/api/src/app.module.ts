@@ -14,7 +14,6 @@ import { FollowUpsModule } from './follow-ups/follow-ups.module';
 import { ClinicsModule } from './clinics/clinics.module';
 import { ReportsModule } from './reports/reports.module';
 import { KnowledgeBaseModule } from './knowledge-base/knowledge-base.module';
-import { BillingModule } from './billing/billing.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -34,7 +33,6 @@ import { HealthController } from './health.controller';
     ClinicsModule,
     ReportsModule,
     KnowledgeBaseModule,
-    BillingModule,
   ],
   controllers: [HealthController],
 })

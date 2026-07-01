@@ -84,6 +84,8 @@ export interface AgentConfig {
   paymentMethods?: string[];
   insurances?: string[];
   customInstructions?: string;
+  model?: string;
+  tone?: string;
 }
 
 // ==========================================

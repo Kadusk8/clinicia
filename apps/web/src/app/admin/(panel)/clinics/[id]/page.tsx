@@ -44,7 +44,7 @@ export default function EditClinicPage() {
   // Tab 0 — Dados
   const [form, setForm] = useState({ name: '', type: '', plan: '', phone: '', email: '', address: '' });
   // Tab 1 — Agente IA
-  const [agentForm, setAgentForm] = useState({ assistantName: '', tone: '', greeting: '', agentSystemPrompt: '', agentKnowledgeBase: '' });
+  const [agentForm, setAgentForm] = useState({ assistantName: '', tone: '', greeting: '', agentSystemPrompt: '', agentKnowledgeBase: '', model: 'claude-sonnet-4-5-20250514' });
   // Tab 2 — WhatsApp
   const [waForm, setWaForm] = useState({ whatsappInstanceName: '', evolutionApiUrl: '', evolutionApiKey: '' });
 
@@ -59,7 +59,7 @@ export default function EditClinicPage() {
         setClinic(c);
         setForm({ name: c.name ?? '', type: c.type ?? '', plan: c.plan ?? '', phone: c.phone ?? '', email: c.email ?? '', address: c.address ?? '' });
         const cfg = c.agentConfig ?? {};
-        setAgentForm({ assistantName: cfg.assistantName ?? '', tone: cfg.tone ?? '', greeting: cfg.greeting ?? '', agentSystemPrompt: c.agentSystemPrompt ?? '', agentKnowledgeBase: c.agentKnowledgeBase ?? '' });
+        setAgentForm({ assistantName: cfg.assistantName ?? '', tone: cfg.tone ?? '', greeting: cfg.greeting ?? '', agentSystemPrompt: c.agentSystemPrompt ?? '', agentKnowledgeBase: c.agentKnowledgeBase ?? '', model: cfg.model ?? 'claude-sonnet-4-5-20250514' });
         setWaForm({ whatsappInstanceName: c.whatsappInstanceName ?? '', evolutionApiUrl: c.evolutionApiUrl ?? '', evolutionApiKey: c.evolutionApiKey ?? '' });
       });
     fetch(`${API}/api/admin/clinics/${id}/stats`, { headers }).then((r) => r.json()).then(setStats);
@@ -78,7 +78,7 @@ export default function EditClinicPage() {
       method: 'PUT',
       headers,
       body: JSON.stringify({
-        agentConfig: { assistantName: agentForm.assistantName, tone: agentForm.tone, greeting: agentForm.greeting },
+        agentConfig: { assistantName: agentForm.assistantName, tone: agentForm.tone, greeting: agentForm.greeting, model: agentForm.model },
         agentSystemPrompt: agentForm.agentSystemPrompt,
         agentKnowledgeBase: agentForm.agentKnowledgeBase,
       }),
@@ -203,6 +203,16 @@ export default function EditClinicPage() {
               <label className="block text-sm font-medium text-surface-300 mb-1">Base de conhecimento</label>
               <textarea value={agentForm.agentKnowledgeBase} onChange={(e) => setAgentForm((p) => ({ ...p, agentKnowledgeBase: e.target.value }))} className={`${inputCls} min-h-[120px]`} />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-surface-300 mb-1">Modelo LLM</label>
+              <select value={agentForm.model} onChange={(e) => setAgentForm((p) => ({ ...p, model: e.target.value }))} className={inputCls}>
+                <option value="claude-sonnet-4-5-20250514">Claude Sonnet 4.5 (padrão)</option>
+                <option value="claude-sonnet-5">Claude Sonnet 5 (recomendado)</option>
+                <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 (rápido / econômico)</option>
+                <option value="claude-opus-4-8">Claude Opus 4.8 (máxima capacidade)</option>
+              </select>
+              <p className="text-xs text-surface-500 mt-1">Modelos mais avançados custam mais por mensagem.</p>
+            </div>
             <button onClick={saveAgent} disabled={saving} className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-orange-500 text-white font-semibold rounded-xl disabled:opacity-50 transition-all">
               {saving ? 'Salvando...' : 'Salvar Agente'}
             </button>
@@ -230,8 +240,17 @@ export default function EditClinicPage() {
               <label className="block text-sm font-medium text-surface-300 mb-1">API Key da Instância</label>
               <input value={waForm.evolutionApiKey} onChange={(e) => setWaForm((p) => ({ ...p, evolutionApiKey: e.target.value }))} className={inputCls} placeholder="Token da instância..." type="password" />
             </div>
+            {waForm.whatsappInstanceName && (
+              <div className="bg-surface-800 border border-surface-700 rounded-xl p-4">
+                <p className="text-xs font-semibold text-surface-400 uppercase mb-2">URL do Webhook (copie para a Evolution Go)</p>
+                <code className="text-xs text-accent-300 break-all select-all">
+                  {API}/api/webhooks/evolution/{waForm.whatsappInstanceName}
+                </code>
+                <p className="text-xs text-surface-500 mt-2">Configure este webhook na Evolution Go com os eventos <strong className="text-surface-400">MESSAGES_UPSERT</strong> e <strong className="text-surface-400">CONNECTION_UPDATE</strong>. Ao salvar, o sistema tenta registrar automaticamente.</p>
+              </div>
+            )}
             <button onClick={saveWhatsApp} disabled={saving} className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-orange-500 text-white font-semibold rounded-xl disabled:opacity-50 transition-all mt-4">
-              {saving ? 'Salvando...' : 'Salvar Integração'}
+              {saving ? 'Salvando...' : 'Salvar e Registrar Webhook'}
             </button>
           </div>
         )}

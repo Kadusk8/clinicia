@@ -53,7 +53,7 @@ export function createAgent(apiKey: string) {
 
     while (continueLoop) {
       const response = await client.messages.create({
-        model: 'claude-sonnet-4-5-20250514',
+        model: context.clinicConfig.model || 'claude-sonnet-4-5-20250514',
         max_tokens: 1024,
         system: systemPrompt,
         messages,
