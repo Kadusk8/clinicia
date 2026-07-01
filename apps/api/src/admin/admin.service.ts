@@ -4,7 +4,7 @@ import { eq, desc, sql, ilike, or } from 'drizzle-orm';
 import { NotFoundError } from '@crm-clinicas/shared';
 import { EvolutionClient } from '@crm-clinicas/evolution';
 import * as crypto from 'crypto';
-import { hashPassword as betterAuthHashPassword } from '@better-auth/utils/password';
+import { hashPassword as betterAuthHashPassword } from 'better-auth/crypto';
 
 function hashPassword(password: string): string {
   return crypto.createHash('sha256').update(password).digest('hex');
