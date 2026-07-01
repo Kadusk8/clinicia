@@ -181,8 +181,13 @@ export class AdminService {
   }
 
   async deleteClinic(id: string) {
-    // Delete all related data in order (respecting FKs)
     this.logger.warn(`Deleting clinic ${id} and ALL related data`);
+
+    // Get user IDs before deleting users (needed to clean account table)
+    const clinicUsers = await db
+      .select({ id: schema.users.id })
+      .from(schema.users)
+      .where(eq(schema.users.clinicId, id));
 
     await db.delete(schema.messages).where(eq(schema.messages.clinicId, id));
     await db.delete(schema.conversations).where(eq(schema.conversations.clinicId, id));
@@ -194,8 +199,13 @@ export class AdminService {
     await db.delete(schema.patients).where(eq(schema.patients.clinicId, id));
     await db.delete(schema.professionals).where(eq(schema.professionals.clinicId, id));
     await db.delete(schema.services).where(eq(schema.services.clinicId, id));
-    await db.delete(schema.users).where(eq(schema.users.clinicId, id));
     await db.delete(schema.auditLog).where(eq(schema.auditLog.clinicId, id));
+
+    // Delete account entries (FK → users.id, no cascade)
+    for (const u of clinicUsers) {
+      await db.delete(schema.account).where(eq(schema.account.userId, u.id));
+    }
+    await db.delete(schema.users).where(eq(schema.users.clinicId, id));
     await db.delete(schema.clinics).where(eq(schema.clinics.id, id));
 
     return { deleted: true };
