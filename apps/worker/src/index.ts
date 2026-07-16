@@ -3,7 +3,15 @@ import IORedis from 'ioredis';
 import { db, schema } from '@crm-clinicas/db';
 import { eq, and, lte, desc } from 'drizzle-orm';
 import { EvolutionClient } from '@crm-clinicas/evolution';
-import { createAgent, executeToolCall, generateEmbedding, chunkText } from '@crm-clinicas/ai';
+import {
+  createAgent,
+  executeToolCall,
+  generateEmbedding,
+  chunkText,
+  buildMessageWindow,
+  shouldRegenerateSummary,
+  buildSummaryPrompt,
+} from '@crm-clinicas/ai';
 import type { AgentConfig } from '@crm-clinicas/shared';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
@@ -99,8 +107,6 @@ const messageWorker = new Worker(
     const agentConfig = (clinic.agentConfig ?? {}) as AgentConfig;
     const clinicName = clinic.name;
     const patientPhone = conversation.externalId ?? '';
-
-    const { buildMessageWindow, shouldRegenerateSummary, buildSummaryPrompt } = await import('@crm-clinicas/ai/dist/memory.js');
 
     const memoryWindow = buildMessageWindow({
       summary: conversation.summary,

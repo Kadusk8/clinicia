@@ -2,8 +2,8 @@
 // Uses OpenAI text-embedding-3-small + pgvector for similarity search
 
 import OpenAI from 'openai';
-import { db, schema } from '@crm-clinicas/db';
-import { eq, sql } from 'drizzle-orm';
+import { db } from '@crm-clinicas/db';
+import { sql } from 'drizzle-orm';
 
 export interface RagResult {
   content: string;
