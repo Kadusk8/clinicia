@@ -30,7 +30,11 @@ async function bootstrap() {
         process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
         'http://localhost:3000',
       ];
-  app.enableCors({ origin: corsOrigins, credentials: true });
+  app.enableCors({
+    origin: corsOrigins,
+    credentials: true,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE'],
+  });
 
   // Global prefix
   app.setGlobalPrefix('api');
