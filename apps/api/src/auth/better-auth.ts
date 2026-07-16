@@ -19,11 +19,11 @@ export const auth = betterAuth({
     enabled: true,
   },
   baseURL: process.env.BETTER_AUTH_URL || 'http://localhost:3001',
+  // In production, main.ts validates BETTER_AUTH_SECRET is set before bootstrap.
+  // The fallback is only used in development.
   secret: process.env.BETTER_AUTH_SECRET || 'secret-key-for-dev-only',
   trustedOrigins: [
     process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-    'https://clinicia.useia.api.br',
-    'http://localhost:3000',
   ],
   advanced:
     process.env.NODE_ENV === 'production'

@@ -6,6 +6,7 @@ import {
   integer,
   boolean,
   primaryKey,
+  timestamp,
 } from 'drizzle-orm/pg-core';
 import { clinics } from './clinics';
 
@@ -22,6 +23,8 @@ export const services = pgTable('services', {
   acceptsInsurance: boolean('accepts_insurance').default(false),
   insurancePlans: text('insurance_plans').array(),
   active: boolean('active').default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
 export type Service = typeof services.$inferSelect;

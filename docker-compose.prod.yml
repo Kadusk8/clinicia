@@ -3,6 +3,7 @@ services:
     image: redis:7-alpine
     container_name: clinicia_redis
     restart: unless-stopped
+    command: redis-server --appendonly yes
     volumes:
       - clinicia_redis_data:/data
     networks:
@@ -14,13 +15,14 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://neondb_owner:npg_ig3mPGFA4COa@ep-divine-bird-adm0qs1t-pooler.c-2.us-east-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require
+      - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=redis://clinicia_redis:6379
-      - BETTER_AUTH_SECRET=317a1f39cd8d4fbd9f391f5b9d971929ad3086c0cbabc223cf23ed3c01a3d84e
-      - BETTER_AUTH_URL=https://clinicia-api.useia.api.br
-      - API_BASE_URL=https://clinicia-api.useia.api.br
-      - NEXT_PUBLIC_API_URL=https://clinicia-api.useia.api.br
-      - NEXT_PUBLIC_APP_URL=https://clinicia.useia.api.br
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-https://clinicia-api.useia.api.br}
+      - API_BASE_URL=${API_BASE_URL:-https://clinicia-api.useia.api.br}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://clinicia-api.useia.api.br}
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-https://clinicia.useia.api.br}
+      - ASAAS_WEBHOOK_TOKEN=${ASAAS_WEBHOOK_TOKEN}
       - PORT=3001
     networks:
       - caos
@@ -39,8 +41,8 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=https://clinicia-api.useia.api.br
-      - NEXT_PUBLIC_APP_URL=https://clinicia.useia.api.br
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://clinicia-api.useia.api.br}
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-https://clinicia.useia.api.br}
     networks:
       - caos
     depends_on:
@@ -58,11 +60,11 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://neondb_owner:npg_ig3mPGFA4COa@ep-divine-bird-adm0qs1t-pooler.c-2.us-east-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require
+      - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=redis://clinicia_redis:6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       # As chaves de LLM do agente são POR CLÍNICA (definidas ao criar/editar o agente).
-      # A linha abaixo é OPCIONAL e serve só para gerar embeddings da base de conhecimento (RAG).
-      # - OPENAI_API_KEY=sk-xxx
+      # OPENAI_API_KEY acima é OPCIONAL — só para gerar embeddings da base de conhecimento (RAG).
     networks:
       - caos
     depends_on:

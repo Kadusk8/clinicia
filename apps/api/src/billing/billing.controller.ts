@@ -1,6 +1,9 @@
 import { Controller, Post, Body, Headers, UnauthorizedException, Logger } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
+import { timingSafeEqual } from 'node:crypto';
 import { BillingService } from './billing.service';
 
+@SkipThrottle()
 @Controller('billing')
 export class BillingController {
   private readonly logger = new Logger(BillingController.name);
@@ -22,7 +25,10 @@ export class BillingController {
       throw new UnauthorizedException('ASAAS_WEBHOOK_TOKEN not configured');
     }
 
-    if (token !== expectedToken) {
+    // Timing-safe comparison to prevent timing attacks
+    const incoming = Buffer.from(token || '');
+    const expected = Buffer.from(expectedToken);
+    if (incoming.length !== expected.length || !timingSafeEqual(incoming, expected)) {
       throw new UnauthorizedException('Invalid webhook token');
     }
 

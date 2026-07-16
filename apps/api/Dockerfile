@@ -5,8 +5,14 @@ RUN corepack enable
 
 FROM base AS builder
 WORKDIR /app
-COPY . .
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/api/package.json apps/api/
+COPY packages/db/package.json packages/db/
+COPY packages/shared/package.json packages/shared/
+COPY packages/evolution/package.json packages/evolution/
+COPY packages/ai/package.json packages/ai/
 RUN pnpm install --frozen-lockfile
+COPY . .
 RUN pnpm --filter @crm-clinicas/api build
 
 FROM base AS runner

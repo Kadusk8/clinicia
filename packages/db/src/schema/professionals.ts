@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, jsonb, boolean, timestamp } from 'drizzle-orm/pg-core';
 import { clinics } from './clinics';
 import { users } from './users';
 
@@ -14,7 +14,9 @@ export const professionals = pgTable('professionals', {
   googleCalendarId: varchar('google_calendar_id', { length: 255 }),
   workingHours: jsonb('working_hours').default({}),
   // workingHours shape: { mon: [{start: "08:00", end: "12:00"}, {start: "14:00", end: "18:00"}], ... }
-  active: jsonb('active').default(true),
+  active: boolean('active').default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
 export type Professional = typeof professionals.$inferSelect;

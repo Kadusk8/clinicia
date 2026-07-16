@@ -77,28 +77,36 @@ const messageWorker = new Worker(
       return;
     }
 
-    // 2. Fetch last 20 messages (chronological order)
-    const rawMessages = await db
+    // 2. Fetch all messages to count total turns, and get the last 20 for context
+    const allMessages = await db
       .select()
       .from(schema.messages)
       .where(eq(schema.messages.conversationId, conversationId))
-      .orderBy(desc(schema.messages.createdAt))
-      .limit(20);
+      .orderBy(desc(schema.messages.createdAt));
 
-    rawMessages.reverse();
+    const totalTurns = allMessages.length;
+    const rawMessages = allMessages.slice(0, 20).reverse();
 
-    // 3. Map roles for the agent (patient/staff/system → user, agent → assistant)
-    const messageHistory = rawMessages
+    // 3. Map roles for the agent
+    const recentMessages = rawMessages
       .filter((m) => m.role === 'patient' || m.role === 'agent')
       .map((m) => ({
         role: m.role === 'agent' ? ('assistant' as const) : ('user' as const),
         content: m.content,
       }));
 
-    // 4. Build AgentContext
+    // 4. Build AgentContext and Memory Window
     const agentConfig = (clinic.agentConfig ?? {}) as AgentConfig;
     const clinicName = clinic.name;
     const patientPhone = conversation.externalId ?? '';
+
+    const { buildMessageWindow, shouldRegenerateSummary, buildSummaryPrompt } = await import('@crm-clinicas/ai/dist/memory.js');
+
+    const memoryWindow = buildMessageWindow({
+      summary: conversation.summary,
+      recentMessages,
+      totalTurns,
+    });
 
     const context = {
       clinicId,
@@ -116,7 +124,27 @@ const messageWorker = new Worker(
       googleApiKey: process.env.GOOGLE_AI_API_KEY,
       openrouterApiKey: process.env.OPENROUTER_API_KEY,
     });
-    const result = await agent.processConversation(context, messageHistory, (name, input, ctx) =>
+
+    // Run summary generation in background if needed (non-blocking for response)
+    if (shouldRegenerateSummary({ summary: conversation.summary, recentMessages, totalTurns })) {
+      const summaryPrompt = buildSummaryPrompt(memoryWindow);
+      // Generate summary and update db (we do this asynchronously so we don't delay the reply)
+      agent.processConversation(
+        { ...context, dynamicContext: '' },
+        [{ role: 'user', content: summaryPrompt }],
+        async () => 'ok'
+      ).then(async (summaryResult) => {
+        if (summaryResult.response) {
+          await db
+            .update(schema.conversations)
+            .set({ summary: summaryResult.response, updatedAt: new Date() })
+            .where(eq(schema.conversations.id, conversationId));
+          console.log(`📝 Generated new summary for conversation ${conversationId}`);
+        }
+      }).catch(e => console.error('Summary generation failed:', e));
+    }
+
+    const result = await agent.processConversation(context, memoryWindow, (name, input, ctx) =>
       executeToolCall(name, input, {
         clinicId: ctx.clinicId,
         conversationId: ctx.conversationId,
@@ -266,7 +294,7 @@ const followUpWorker = new Worker(
         await db.insert(schema.messages).values({
           conversationId: conversation[0].id,
           clinicId: clinic.id,
-          role: 'assistant',
+          role: 'agent',
           content: message,
         });
       }

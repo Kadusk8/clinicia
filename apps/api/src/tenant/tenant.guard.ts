@@ -5,18 +5,16 @@ import {
   UnauthorizedException,
   ForbiddenException,
 } from '@nestjs/common';
-import { TenantService } from './tenant.service';
 import { db, schema } from '@crm-clinicas/db';
 import { eq } from 'drizzle-orm';
 
 @Injectable()
 export class TenantGuard implements CanActivate {
-  constructor(private readonly tenantService: TenantService) {}
-
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
 
     // clinicId comes from the authenticated user's session
+    // (populated by AuthMiddleware from Better Auth cookie)
     const clinicId = request.user?.clinicId;
 
     if (!clinicId) {
@@ -41,9 +39,7 @@ export class TenantGuard implements CanActivate {
     // Inject clinicId into the request for downstream use
     request.clinicId = clinicId;
 
-    // Set RLS context
-    await this.tenantService.setTenantContext(clinicId);
-
     return true;
   }
 }
+

@@ -15,6 +15,13 @@
       "when": 1782847086857,
       "tag": "0001_tranquil_zarda",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784221594202,
+      "tag": "0002_common_magdalene",
+      "breakpoints": true
     }
   ]
 }
