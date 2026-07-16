@@ -181,33 +181,48 @@ export class AdminService {
   async deleteClinic(id: string) {
     this.logger.warn(`Deleting clinic ${id} and ALL related data`);
 
-    // Get user IDs before deleting users (needed to clean account table)
-    const clinicUsers = await db
-      .select({ id: schema.users.id })
-      .from(schema.users)
-      .where(eq(schema.users.clinicId, id));
+    return db.transaction(async (tx) => {
+      // Get user/professional IDs before deleting them (needed for FK cleanup below)
+      const clinicUsers = await tx
+        .select({ id: schema.users.id })
+        .from(schema.users)
+        .where(eq(schema.users.clinicId, id));
 
-    await db.delete(schema.messages).where(eq(schema.messages.clinicId, id));
-    await db.delete(schema.conversations).where(eq(schema.conversations.clinicId, id));
-    await db.delete(schema.followUps).where(eq(schema.followUps.clinicId, id));
-    await db.delete(schema.appointments).where(eq(schema.appointments.clinicId, id));
-    await db.delete(schema.deals).where(eq(schema.deals.clinicId, id));
-    await db.delete(schema.kbChunks).where(eq(schema.kbChunks.clinicId, id));
-    await db.delete(schema.kbDocuments).where(eq(schema.kbDocuments.clinicId, id));
-    await db.delete(schema.patients).where(eq(schema.patients.clinicId, id));
-    await db.delete(schema.professionals).where(eq(schema.professionals.clinicId, id));
-    await db.delete(schema.services).where(eq(schema.services.clinicId, id));
-    await db.delete(schema.auditLog).where(eq(schema.auditLog.clinicId, id));
+      const clinicProfessionals = await tx
+        .select({ id: schema.professionals.id })
+        .from(schema.professionals)
+        .where(eq(schema.professionals.clinicId, id));
 
-    // Delete session + account entries (FK → users.id, no cascade)
-    for (const u of clinicUsers) {
-      await db.delete(schema.session).where(eq(schema.session.userId, u.id));
-      await db.delete(schema.account).where(eq(schema.account.userId, u.id));
-    }
-    await db.delete(schema.users).where(eq(schema.users.clinicId, id));
-    await db.delete(schema.clinics).where(eq(schema.clinics.id, id));
+      await tx.delete(schema.messages).where(eq(schema.messages.clinicId, id));
+      await tx.delete(schema.conversations).where(eq(schema.conversations.clinicId, id));
+      await tx.delete(schema.followUps).where(eq(schema.followUps.clinicId, id));
+      await tx.delete(schema.appointments).where(eq(schema.appointments.clinicId, id));
+      await tx.delete(schema.deals).where(eq(schema.deals.clinicId, id));
+      await tx.delete(schema.kbChunks).where(eq(schema.kbChunks.clinicId, id));
+      await tx.delete(schema.kbDocuments).where(eq(schema.kbDocuments.clinicId, id));
+      await tx.delete(schema.patients).where(eq(schema.patients.clinicId, id));
 
-    return { deleted: true };
+      // Junction table (FK → professionals.id / services.id, no cascade)
+      for (const p of clinicProfessionals) {
+        await tx
+          .delete(schema.professionalServices)
+          .where(eq(schema.professionalServices.professionalId, p.id));
+      }
+
+      await tx.delete(schema.professionals).where(eq(schema.professionals.clinicId, id));
+      await tx.delete(schema.services).where(eq(schema.services.clinicId, id));
+      await tx.delete(schema.auditLog).where(eq(schema.auditLog.clinicId, id));
+
+      // Delete session + account entries (FK → users.id, no cascade)
+      for (const u of clinicUsers) {
+        await tx.delete(schema.session).where(eq(schema.session.userId, u.id));
+        await tx.delete(schema.account).where(eq(schema.account.userId, u.id));
+      }
+      await tx.delete(schema.users).where(eq(schema.users.clinicId, id));
+      await tx.delete(schema.clinics).where(eq(schema.clinics.id, id));
+
+      return { deleted: true };
+    });
   }
 
   async suspendClinic(id: string, reason: string) {
