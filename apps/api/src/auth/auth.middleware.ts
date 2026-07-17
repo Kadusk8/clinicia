@@ -38,12 +38,12 @@ export class AuthMiddleware implements NestMiddleware {
           email: session.user.email,
           name: session.user.name,
         };
-        this.logger.log(`Auth OK: user=${session.user.id} clinicId=${(session.user as any).clinicId}`);
+        this.logger.log(`[${req.id}] Auth OK: user=${session.user.id} clinicId=${(session.user as any).clinicId} reqCtor=${req.constructor?.name}`);
       } else {
-        this.logger.warn(`No session for ${req.url} (cookie present: ${!!req.headers.cookie})`);
+        this.logger.warn(`[${req.id}] No session for ${req.url} (cookie present: ${!!req.headers.cookie})`);
       }
     } catch (error) {
-      this.logger.warn(`AuthMiddleware error on ${req.url}: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.warn(`[${req.id}] AuthMiddleware error on ${req.url}: ${error instanceof Error ? error.message : String(error)}`);
     }
 
     next();

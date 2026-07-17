@@ -19,7 +19,7 @@ export class TenantGuard implements CanActivate {
     // clinicId comes from the authenticated user's session
     // (populated by AuthMiddleware from Better Auth cookie)
     const clinicId = request.user?.clinicId;
-    this.logger.warn(`TenantGuard check: hasUser=${!!request.user} clinicId=${clinicId} url=${request.url} reqCtor=${request.constructor?.name}`);
+    this.logger.warn(`[${request.id}] TenantGuard check: hasUser=${!!request.user} clinicId=${clinicId} url=${request.url} reqCtor=${request.constructor?.name}`);
 
     if (!clinicId) {
       throw new UnauthorizedException('Tenant não identificado');
