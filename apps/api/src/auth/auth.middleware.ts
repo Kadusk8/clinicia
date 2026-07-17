@@ -1,4 +1,4 @@
-import { Injectable, NestMiddleware } from '@nestjs/common';
+import { Injectable, NestMiddleware, Logger } from '@nestjs/common';
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { auth } from './better-auth';
 
@@ -11,6 +11,8 @@ import { auth } from './better-auth';
  */
 @Injectable()
 export class AuthMiddleware implements NestMiddleware {
+  private readonly logger = new Logger(AuthMiddleware.name);
+
   async use(req: FastifyRequest, _res: FastifyReply, next: () => void) {
     try {
       // Build a standard Request from the Fastify request so Better Auth can
@@ -36,10 +38,12 @@ export class AuthMiddleware implements NestMiddleware {
           email: session.user.email,
           name: session.user.name,
         };
+        this.logger.log(`Auth OK: user=${session.user.id} clinicId=${(session.user as any).clinicId}`);
+      } else {
+        this.logger.warn(`No session for ${req.url} (cookie present: ${!!req.headers.cookie})`);
       }
-    } catch {
-      // Session invalid or missing — leave request.user undefined.
-      // TenantGuard will throw 401 for protected routes.
+    } catch (error) {
+      this.logger.warn(`AuthMiddleware error on ${req.url}: ${error instanceof Error ? error.message : String(error)}`);
     }
 
     next();
