@@ -5,10 +5,19 @@ import { betterFetch } from '@better-fetch/fetch';
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Only protect dashboard routes
-  if (!pathname.startsWith('/dashboard') && 
-      !pathname.startsWith('/inbox') && 
-      !pathname.startsWith('/pipeline')) {
+  // Only protect authenticated app routes (apps/web/src/app/(dashboard)/*)
+  const protectedPrefixes = [
+    '/dashboard',
+    '/inbox',
+    '/pipeline',
+    '/patients',
+    '/settings',
+    '/professionals',
+    '/agenda',
+    '/services',
+    '/reports',
+  ];
+  if (!protectedPrefixes.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }
 
