@@ -114,13 +114,21 @@ const messageWorker = new Worker(
       totalTurns,
     });
 
+    const dynamicContextParts: string[] = [];
+    if (clinic.agentSystemPrompt) {
+      dynamicContextParts.push(`## Instruções específicas da clínica\n${clinic.agentSystemPrompt}`);
+    }
+    if (clinic.agentKnowledgeBase) {
+      dynamicContextParts.push(`## Base de conhecimento\n${clinic.agentKnowledgeBase}`);
+    }
+
     const context = {
       clinicId,
       conversationId,
       patientPhone,
       clinicConfig: agentConfig,
       clinicName,
-      dynamicContext: clinic.agentKnowledgeBase ?? '',
+      dynamicContext: dynamicContextParts.join('\n\n'),
     };
 
     // 5. Run agent
