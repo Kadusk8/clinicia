@@ -38,12 +38,10 @@ export const auth = betterAuth({
       clinicId: {
         type: 'string',
         required: true,
-        fieldName: 'clinic_id',
       },
       role: {
         type: 'string',
         required: true,
-        fieldName: 'role',
       },
     },
   },
