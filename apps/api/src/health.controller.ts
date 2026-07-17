@@ -30,9 +30,10 @@ export class HealthController {
     try {
       const redis = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
         maxRetriesPerRequest: 1,
-        enableOfflineQueue: false,
         commandTimeout: 1000,
+        lazyConnect: true,
       });
+      await redis.connect();
       await redis.ping();
       health.redis = 'up';
       redis.disconnect();
