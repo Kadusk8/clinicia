@@ -3,6 +3,12 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
+import {
+  adminCreateClinicSchema,
+  adminUpdateClinicSchema,
+  adminUpdateAgentSchema,
+  adminUpdateWhatsAppSchema,
+} from '@crm-clinicas/shared';
 import { AdminService } from './admin.service';
 import { SuperAdminGuard } from './super-admin.guard';
 
@@ -79,13 +85,15 @@ export class AdminController {
   @Post('clinics')
   @UseGuards(SuperAdminGuard)
   async createClinic(@Body() body: any) {
-    return this.adminService.createClinic(body);
+    const data = adminCreateClinicSchema.parse(body);
+    return this.adminService.createClinic(data);
   }
 
   @Put('clinics/:id')
   @UseGuards(SuperAdminGuard)
   async updateClinic(@Param('id') id: string, @Body() body: any) {
-    return this.adminService.updateClinic(id, body);
+    const data = adminUpdateClinicSchema.parse(body);
+    return this.adminService.updateClinic(id, data);
   }
 
   @Delete('clinics/:id')
@@ -117,7 +125,8 @@ export class AdminController {
   @Put('clinics/:id/agent')
   @UseGuards(SuperAdminGuard)
   async updateAgent(@Param('id') id: string, @Body() body: any) {
-    return this.adminService.updateAgentConfig(id, body);
+    const data = adminUpdateAgentSchema.parse(body);
+    return this.adminService.updateAgentConfig(id, data);
   }
 
   // ==========================================
@@ -127,6 +136,7 @@ export class AdminController {
   @Put('clinics/:id/whatsapp')
   @UseGuards(SuperAdminGuard)
   async updateWhatsApp(@Param('id') id: string, @Body() body: any) {
-    return this.adminService.updateWhatsApp(id, body);
+    const data = adminUpdateWhatsAppSchema.parse(body);
+    return this.adminService.updateWhatsApp(id, data);
   }
 }

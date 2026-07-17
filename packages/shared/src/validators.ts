@@ -6,6 +6,7 @@ import {
   DEAL_STAGES,
   FOLLOW_UP_TYPES,
   URGENCY_LEVELS,
+  PLAN_TYPES,
 } from './types.js';
 
 // ==========================================
@@ -27,6 +28,52 @@ export const createClinicSchema = z.object({
 });
 
 export const updateClinicSchema = createClinicSchema.partial();
+
+// ==========================================
+// Admin Validators (super admin panel)
+// ==========================================
+
+export const adminCreateClinicSchema = z.object({
+  name: z.string().min(2).max(255),
+  slug: z
+    .string()
+    .min(2)
+    .max(100)
+    .regex(/^[a-z0-9-]+$/, 'Slug deve conter apenas letras minúsculas, números e hífens'),
+  type: z.enum(CLINIC_TYPES),
+  phone: z.string().max(20).optional(),
+  email: z.string().email().optional(),
+  address: z.string().max(500).optional(),
+  plan: z.enum(PLAN_TYPES).optional(),
+  agentConfig: z.record(z.string(), z.unknown()).optional(),
+  agentSystemPrompt: z.string().optional(),
+  agentKnowledgeBase: z.string().optional(),
+  ownerName: z.string().min(2).max(255),
+  ownerEmail: z.string().email(),
+  ownerPassword: z.string().min(8),
+});
+
+export const adminUpdateClinicSchema = adminCreateClinicSchema
+  .omit({ ownerName: true, ownerEmail: true, ownerPassword: true })
+  .partial();
+
+export const adminUpdateAgentSchema = z.object({
+  agentConfig: z.record(z.string(), z.unknown()).optional(),
+  agentSystemPrompt: z.string().optional(),
+  agentKnowledgeBase: z.string().optional(),
+});
+
+export const createKnowledgeBaseDocSchema = z.object({
+  title: z.string().trim().min(1).max(255),
+  content: z.string().trim().min(1),
+});
+
+export const adminUpdateWhatsAppSchema = z.object({
+  whatsappInstanceName: z.string().min(1).max(100).optional(),
+  evolutionApiUrl: z.string().url().optional(),
+  evolutionApiKey: z.string().min(1).optional(),
+  whatsappConnected: z.boolean().optional(),
+});
 
 // ==========================================
 // User Validators

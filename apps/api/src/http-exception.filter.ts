@@ -1,5 +1,6 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { FastifyReply } from 'fastify';
+import { ZodError } from 'zod';
 import { AppError } from '@crm-clinicas/shared';
 
 const PG_UNIQUE_VIOLATION = '23505';
@@ -17,7 +18,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = 'Erro interno do servidor';
 
-    if (exception instanceof HttpException) {
+    if (exception instanceof ZodError) {
+      status = HttpStatus.BAD_REQUEST;
+      message = exception.issues
+        .map((i) => `${i.path.join('.')}: ${i.message}`)
+        .join('; ');
+    } else if (exception instanceof HttpException) {
       status = exception.getStatus();
       const res = exception.getResponse();
       message = typeof res === 'string' ? res : (res as any).message || message;

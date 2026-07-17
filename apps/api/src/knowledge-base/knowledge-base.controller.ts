@@ -4,6 +4,7 @@ import {
 import { KnowledgeBaseService } from './knowledge-base.service';
 import { TenantGuard } from '../tenant/tenant.guard';
 import { Queue } from 'bullmq';
+import { createKnowledgeBaseDocSchema } from '@crm-clinicas/shared';
 
 @Controller('knowledge-base')
 @UseGuards(TenantGuard)
@@ -20,12 +21,9 @@ export class KnowledgeBaseController {
 
   @Post()
   async create(@Req() req: any, @Body() body: any) {
-    const { title, content } = body as { title: string; content: string };
-    if (!title?.trim() || !content?.trim()) {
-      throw new Error('title e content são obrigatórios');
-    }
+    const { title, content } = createKnowledgeBaseDocSchema.parse(body);
 
-    const doc = await this.kbService.create(req.clinicId, title.trim(), content.trim());
+    const doc = await this.kbService.create(req.clinicId, title, content);
 
     // Enqueue embedding generation
     await this.embeddingQueue.add(
