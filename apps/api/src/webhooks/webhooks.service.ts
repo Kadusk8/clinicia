@@ -113,12 +113,24 @@ export class WebhooksService {
       return { processed: true, clinicId, phone, aiSkipped: true };
     }
 
-    // jobId fixo por conversa = debounce nativo do BullMQ (substitui job pendente dentro do delay)
+    // jobId fixo por conversa = debounce nativo do BullMQ (substitui job pendente dentro do delay).
+    // BullMQ nunca recicla um jobId já usado, mesmo depois de completed/failed — sem essa
+    // remoção explícita, só a primeira mensagem de cada conversa era processada e todas as
+    // seguintes viravam no-op silencioso (add() resolve normalmente sem criar o job).
+    const jobId = `msg-${conversationId}`;
+    const existingJob = await this.messageQueue.getJob(jobId);
+    if (existingJob) {
+      const state = await existingJob.getState();
+      if (state !== 'active') {
+        await existingJob.remove();
+      }
+    }
+
     await this.messageQueue.add(
       'process',
       { conversationId, clinicId },
       {
-        jobId: `msg-${conversationId}`,
+        jobId,
         delay: 8_000,
         removeOnComplete: 100,
         removeOnFail: 50,
