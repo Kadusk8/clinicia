@@ -176,11 +176,7 @@ const messageWorker = new Worker(
     }
     const clinicEvolutionClient = new EvolutionClient(clinic.evolutionApiUrl, clinic.evolutionApiKey);
     const phone = patientPhone.replace(/\D/g, '');
-    await clinicEvolutionClient.sendText({
-      instanceName: clinic.whatsappInstanceName!,
-      remoteJid: phone,
-      text: result.response,
-    });
+    await clinicEvolutionClient.sendText({ number: phone, text: result.response });
     console.log(`✅ Agent reply sent to ${phone} (conversation: ${conversationId})`);
   },
   { connection, concurrency: 5, limiter: { max: 10, duration: 1000 } },
@@ -281,11 +277,7 @@ const followUpWorker = new Worker(
     const clinicEvolutionClient = new EvolutionClient(clinic.evolutionApiUrl, clinic.evolutionApiKey);
     try {
       const phone = patient.phone.replace(/\D/g, '');
-      await clinicEvolutionClient.sendText({
-        instanceName: clinic.whatsappInstanceName!,
-        remoteJid: phone,
-        text: message,
-      });
+      await clinicEvolutionClient.sendText({ number: phone, text: message });
       console.log(`✅ Follow-up sent to ${patient.name} (${phone})`);
 
       // 6. Mark as sent

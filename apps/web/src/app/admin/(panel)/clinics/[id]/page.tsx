@@ -89,9 +89,18 @@ export default function EditClinicPage() {
 
   const saveWhatsApp = async () => {
     setSaving(true);
-    await fetch(`${API}/api/admin/clinics/${id}/whatsapp`, { method: 'PUT', headers, body: JSON.stringify(waForm) });
+    const res = await fetch(`${API}/api/admin/clinics/${id}/whatsapp`, { method: 'PUT', headers, body: JSON.stringify(waForm) });
+    const result = await res.json().catch(() => ({} as any));
     setSaving(false);
-    alert('Integração salva!');
+    if (!res.ok) {
+      alert(`Erro ao salvar: ${result.message || res.status}`);
+      return;
+    }
+    if (result.webhookError) {
+      alert(`Dados salvos, mas falha ao configurar o webhook na Evolution Go: ${result.webhookError}`);
+      return;
+    }
+    alert(result.whatsappConnected ? 'Integração salva e conectada!' : 'Integração salva. Aguardando conexão (escaneie o QR code na Evolution Go).');
   };
 
   if (!clinic) return <div className="text-surface-400 p-8">Carregando...</div>;

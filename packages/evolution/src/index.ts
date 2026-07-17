@@ -1,8 +1,15 @@
 export { EvolutionClient } from './client.js';
 export type {
-  SendTextMessageParams,
-  SendMediaMessageParams,
-  InstanceInfo,
+  SendTextParams,
+  SendMediaParams,
+  InstanceListItem,
+  InstanceStatus,
+  ConnectParams,
+  ConnectResponse,
+  CreateInstanceParams,
+  CreateInstanceResponse,
   WebhookPayload,
-  WebhookMessage,
+  WebhookMessageInfo,
+  WebhookMessageData,
+  WebhookConnectionData,
 } from './types.js';

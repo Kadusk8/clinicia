@@ -25,14 +25,18 @@ export class WebhooksController {
       throw new UnauthorizedException('Unauthorized');
     }
 
-    if (!apikey) {
-      throw new UnauthorizedException('Missing apikey header');
+    // Evolution Go sends the instance token either as an `apikey` header
+    // or as `instanceToken` in the body, depending on delivery path — accept either.
+    const providedToken = apikey || (body && typeof body === 'object' ? body.instanceToken : undefined);
+
+    if (!providedToken) {
+      throw new UnauthorizedException('Missing instance token');
     }
 
-    const incoming = Buffer.from(apikey);
+    const incoming = Buffer.from(providedToken);
     const expected = Buffer.from(clinicApiKey);
     if (incoming.length !== expected.length || !crypto.timingSafeEqual(incoming, expected)) {
-      throw new UnauthorizedException('Invalid apikey');
+      throw new UnauthorizedException('Invalid instance token');
     }
 
     // Basic body validation

@@ -255,26 +255,38 @@ export class AdminService {
     evolutionApiKey?: string;
     whatsappConnected?: boolean;
   }) {
-    const clinic = await this.updateClinic(id, data as Partial<schema.NewClinic>);
+    let clinic = await this.updateClinic(id, data as Partial<schema.NewClinic>);
 
-    // Auto-configure Webhook in Evolution Go
-    if (data.evolutionApiUrl && data.evolutionApiKey && data.whatsappInstanceName) {
-      try {
-        const client = new EvolutionClient(data.evolutionApiUrl, data.evolutionApiKey);
-        const apiUrl = process.env.API_BASE_URL || 'http://localhost:3001';
-        const webhookUrl = `${apiUrl}/api/webhooks/evolution/${data.whatsappInstanceName}`;
-        
-        await client.setWebhook(data.whatsappInstanceName, webhookUrl, [
-          'MESSAGES_UPSERT',
-          'CONNECTION_UPDATE'
-        ]);
-        this.logger.log(`Webhook configured for instance ${data.whatsappInstanceName} -> ${webhookUrl}`);
-      } catch (error) {
-        this.logger.error(`Failed to configure webhook for instance ${data.whatsappInstanceName}: ${error instanceof Error ? error.message : String(error)}`);
-      }
+    if (!data.evolutionApiUrl || !data.evolutionApiKey || !data.whatsappInstanceName) {
+      return { ...clinic, webhookConfigured: false };
     }
 
-    return clinic;
+    // Auto-configure webhook + read real connection status from Evolution Go.
+    // Note: operational routes (connect/status) are authenticated by the
+    // instance's own token — no UUID lookup needed.
+    const client = new EvolutionClient(data.evolutionApiUrl, data.evolutionApiKey);
+    const apiUrl = process.env.API_BASE_URL || 'http://localhost:3001';
+    const webhookUrl = `${apiUrl}/api/webhooks/evolution/${data.whatsappInstanceName}`;
+
+    let webhookConfigured = false;
+    let webhookError: string | undefined;
+    try {
+      await client.setWebhook(webhookUrl, ['ALL']);
+      webhookConfigured = true;
+      this.logger.log(`Webhook configured for instance ${data.whatsappInstanceName} -> ${webhookUrl}`);
+    } catch (error) {
+      webhookError = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to configure webhook for instance ${data.whatsappInstanceName}: ${webhookError}`);
+    }
+
+    try {
+      const status = await client.getStatus();
+      clinic = await this.updateClinic(id, { whatsappConnected: status.Connected } as Partial<schema.NewClinic>);
+    } catch (error) {
+      this.logger.error(`Failed to read instance status for ${data.whatsappInstanceName}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    return { ...clinic, webhookConfigured, webhookError };
   }
 
   // ==========================================

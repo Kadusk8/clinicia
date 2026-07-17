@@ -1,30 +1,41 @@
 import { ExternalServiceError } from '@crm-clinicas/shared';
 import type {
-  SendTextMessageParams,
-  SendMediaMessageParams,
-  InstanceInfo,
+  SendTextParams,
+  SendMediaParams,
+  InstanceListItem,
+  InstanceStatus,
+  ConnectParams,
+  ConnectResponse,
   CreateInstanceParams,
-  QrCodeResponse,
+  CreateInstanceResponse,
 } from './types.js';
 
 // ==========================================
-// Evolution API Client
+// Evolution Go Client
+// (evolution-foundation/evolution-go)
+//
+// Duas classes de rotas, ambas autenticadas via header `apikey`:
+// - Admin (GLOBAL_API_KEY do servidor): create/list/info/delete de instâncias,
+//   endereçadas por UUID.
+// - Operacional (token da própria instância, gerado em createInstance): connect,
+//   status, send/*, disconnect, logout — SEM UUID na URL, o token já identifica
+//   a instância.
 // ==========================================
 
 export class EvolutionClient {
   private baseUrl: string;
   private apiKey: string;
 
+  /**
+   * @param apiKey Para rotas admin, passe a GLOBAL_API_KEY do servidor.
+   *               Para rotas operacionais, passe o token da instância.
+   */
   constructor(baseUrl: string, apiKey: string) {
     this.baseUrl = baseUrl.replace(/\/$/, '');
     this.apiKey = apiKey;
   }
 
-  private async request<T>(
-    method: string,
-    path: string,
-    body?: unknown,
-  ): Promise<T> {
+  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
     try {
       const response = await fetch(`${this.baseUrl}${path}`, {
         method,
@@ -37,7 +48,7 @@ export class EvolutionClient {
 
       if (!response.ok) {
         const errorBody = await response.text();
-        throw new ExternalServiceError('Evolution API', {
+        throw new ExternalServiceError('Evolution Go', {
           status: response.status,
           body: errorBody,
         });
@@ -46,71 +57,63 @@ export class EvolutionClient {
       return (await response.json()) as T;
     } catch (error) {
       if (error instanceof ExternalServiceError) throw error;
-      throw new ExternalServiceError('Evolution API', { cause: error });
+      throw new ExternalServiceError('Evolution Go', { cause: error });
     }
   }
 
-  // ========== Instance Management ==========
+  // ========== Admin (GLOBAL_API_KEY, endereçado por UUID) ==========
 
-  async createInstance(params: CreateInstanceParams): Promise<InstanceInfo> {
-    return this.request<InstanceInfo>('POST', '/instance/create', params);
+  async createInstance(params: CreateInstanceParams): Promise<CreateInstanceResponse> {
+    return this.request('POST', '/instance/create', params);
   }
 
-  async getInstanceStatus(instanceName: string): Promise<InstanceInfo> {
-    return this.request<InstanceInfo>(
-      'GET',
-      `/instance/${instanceName}/status`,
-    );
+  async listInstances(): Promise<InstanceListItem[]> {
+    const res = await this.request<{ data: InstanceListItem[] }>('GET', '/instance/all');
+    return res.data;
   }
 
-  async getQrCode(instanceName: string): Promise<QrCodeResponse> {
-    return this.request<QrCodeResponse>(
-      'GET',
-      `/instance/${instanceName}/qrcode`,
-    );
+  async getInstanceInfo(instanceId: string): Promise<InstanceListItem> {
+    return this.request('GET', `/instance/info/${instanceId}`);
   }
 
-  async deleteInstance(instanceName: string): Promise<void> {
-    await this.request('DELETE', `/instance/${instanceName}`);
+  async deleteInstance(instanceId: string): Promise<void> {
+    await this.request('DELETE', `/instance/delete/${instanceId}`);
   }
 
-  async listInstances(): Promise<InstanceInfo[]> {
-    return this.request<InstanceInfo[]>('GET', '/instance/fetchInstances');
+  // ========== Operacional (token da instância, sem UUID na URL) ==========
+
+  async connect(params: ConnectParams = {}): Promise<ConnectResponse> {
+    const res = await this.request<{ data: ConnectResponse }>('POST', '/instance/connect', params);
+    return res.data;
   }
 
-  // ========== Messaging ==========
-
-  async sendText(params: SendTextMessageParams): Promise<{ key: { id: string } }> {
-    const { instanceName, remoteJid, text } = params;
-    return this.request('POST', `/message/sendText/${instanceName}`, {
-      number: remoteJid,
-      text,
-    });
+  async getStatus(): Promise<InstanceStatus> {
+    const res = await this.request<{ data: InstanceStatus }>('GET', '/instance/status');
+    return res.data;
   }
 
-  async sendMedia(params: SendMediaMessageParams): Promise<{ key: { id: string } }> {
-    const { instanceName, remoteJid, mediaType, mediaUrl, caption, fileName } = params;
-    return this.request('POST', `/message/sendMedia/${instanceName}`, {
-      number: remoteJid,
-      mediatype: mediaType,
-      media: mediaUrl,
-      caption,
-      fileName,
-    });
+  async disconnect(): Promise<void> {
+    await this.request('POST', '/instance/disconnect');
   }
 
-  // ========== Webhook Configuration ==========
+  async logout(): Promise<void> {
+    await this.request('DELETE', '/instance/logout');
+  }
 
-  async setWebhook(
-    instanceName: string,
-    webhookUrl: string,
-    events: string[] = ['MESSAGES_UPSERT'],
-  ): Promise<void> {
-    await this.request('POST', `/webhook/set/${instanceName}`, {
-      url: webhookUrl,
-      webhook_by_events: false,
-      webhook_base64: false,
-      events,
-    });
+  async sendText(params: SendTextParams): Promise<{ key?: { id: string } }> {
+    return this.request('POST', '/send/text', params);
+  }
+
+  async sendMedia(params: SendMediaParams): Promise<{ key?: { id: string } }> {
+    return this.request('POST', '/send/media', params);
+  }
+
+  /**
+   * Configura (ou reconfigura) o webhook da instância. Atalho sobre connect(),
+   * que é a única rota que aceita webhookUrl/subscribe para uma instância já
+   * criada — não existe rota dedicada `/webhook/set`.
+   */
+  async setWebhook(webhookUrl: string, events: string[] = ['ALL']): Promise<ConnectResponse> {
+    return this.connect({ webhookUrl, subscribe: events, immediate: true });
   }
 }

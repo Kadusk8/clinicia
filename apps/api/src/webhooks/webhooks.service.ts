@@ -2,7 +2,7 @@ import { Injectable, Logger, Inject } from '@nestjs/common';
 import { db, schema } from '@crm-clinicas/db';
 import { and, eq, sql } from 'drizzle-orm';
 import type { Queue } from 'bullmq';
-import type { WebhookPayload } from '@crm-clinicas/evolution';
+import type { WebhookPayload, WebhookMessageData, WebhookConnectionData } from '@crm-clinicas/evolution';
 
 @Injectable()
 export class WebhooksService {
@@ -22,20 +22,30 @@ export class WebhooksService {
   async processEvolutionWebhook(instanceName: string, payload: WebhookPayload) {
     this.logger.log(`Webhook received for instance: ${instanceName}, event: ${payload.event}`);
 
-    if (payload.event !== 'messages.upsert') {
+    // Connection state events — update whatsappConnected in real time instead
+    // of relying only on the one-shot check done when saving the integration.
+    if (payload.event === 'Connected' || payload.event === 'LoggedOut' || payload.event === 'PairSuccess') {
+      const data = payload.data as WebhookConnectionData;
+      await db
+        .update(schema.clinics)
+        .set({ whatsappConnected: payload.event !== 'LoggedOut' && data.status !== 'close' })
+        .where(eq(schema.clinics.whatsappInstanceName, instanceName));
+      return;
+    }
+
+    if (payload.event !== 'Message') {
       this.logger.debug(`Ignoring event: ${payload.event}`);
       return;
     }
 
-    const message = payload.data;
+    const message = payload.data as WebhookMessageData;
 
     // Ignore outgoing messages
-    if (message.key.fromMe) return;
+    if (message.Info.IsFromMe) return;
 
     // Ignore group messages
-    const remoteJid = message.key.remoteJid;
-    if (remoteJid.endsWith('@g.us')) {
-      this.logger.debug(`Ignoring group message from: ${remoteJid}`);
+    if (message.Info.IsGroup) {
+      this.logger.debug(`Ignoring group message from: ${message.Info.Chat}`);
       return;
     }
 
@@ -57,12 +67,13 @@ export class WebhooksService {
     }
 
     const clinicId = clinic.id;
-    const phone = remoteJid.replace('@s.whatsapp.net', '');
+    // Sender JID looks like "5511999998888:1@s.whatsapp.net" — strip device suffix and domain.
+    const phone = message.Info.Sender.split('@')[0]!.split(':')[0]!;
 
     // Extract message content
     const content =
-      message.message?.conversation ||
-      message.message?.extendedTextMessage?.text ||
+      message.Message?.conversation ||
+      message.Message?.extendedTextMessage?.text ||
       '[Mídia recebida]';
 
     this.logger.log(`Message from ${phone}: ${content.substring(0, 100)}`);
@@ -83,7 +94,7 @@ export class WebhooksService {
       clinicId,
       role: 'patient',
       content,
-      externalId: message.key.id,
+      externalId: message.Info.ID,
     });
 
     // Update conversation metadata

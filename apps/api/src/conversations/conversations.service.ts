@@ -164,14 +164,9 @@ export class ConversationsService {
     if (clinic?.whatsappInstanceName && clinic.evolutionApiUrl && clinic.evolutionApiKey && conversation.externalId) {
       const client = new EvolutionClient(clinic.evolutionApiUrl, clinic.evolutionApiKey);
       const phone = conversation.externalId.replace(/\D/g, '');
-      await client.sendText({
-        instanceName: clinic.whatsappInstanceName,
-        remoteJid: phone,
-        text: content,
-      }).catch((err: Error) => {
-        // Log but don't fail the request — message is already persisted
-        console.error('Failed to send via WhatsApp:', err.message);
-      });
+      // Message is already persisted above — a send failure here still surfaces
+      // to the caller (so the UI can flag it) but never loses the CRM record.
+      await client.sendText({ number: phone, text: content });
     }
 
     return message;

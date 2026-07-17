@@ -1,79 +1,106 @@
 // ==========================================
-// Evolution API Types
+// Evolution Go Types
+// (evolution-foundation/evolution-go — NÃO é a Evolution API Node original)
 // ==========================================
 
-export interface SendTextMessageParams {
-  instanceName: string;
-  remoteJid: string; // e.g. 5511999998888@s.whatsapp.net
+export interface SendTextParams {
+  number: string; // DDI+DDD+número, sem "+" (ex: 5511999998888)
   text: string;
 }
 
-export interface SendMediaMessageParams {
-  instanceName: string;
-  remoteJid: string;
+export interface SendMediaParams {
+  number: string;
   mediaType: 'image' | 'video' | 'audio' | 'document';
-  mediaUrl: string;
+  media: string; // URL ou base64
   caption?: string;
   fileName?: string;
 }
 
-export interface InstanceInfo {
-  instanceName: string;
-  status: 'open' | 'close' | 'connecting';
-  owner?: string;
-  profilePicUrl?: string;
+export interface InstanceListItem {
+  id: string; // UUID — identificador real da instância nas rotas admin
+  name: string;
+  token: string;
+  webhook: string;
+  connected: boolean;
+  jid?: string;
 }
 
-export interface WebhookPayload {
-  event: string;
-  instance: string;
-  data: WebhookMessage;
+export interface InstanceStatus {
+  Connected: boolean;
+  LoggedIn: boolean;
+  Name?: string;
 }
 
-export interface WebhookMessage {
-  key: {
-    remoteJid: string;
-    fromMe: boolean;
-    id: string;
-  };
-  pushName?: string;
-  message?: {
-    conversation?: string;
-    extendedTextMessage?: {
-      text: string;
-    };
-    imageMessage?: {
-      url: string;
-      caption?: string;
-      mimetype: string;
-    };
-    audioMessage?: {
-      url: string;
-      mimetype: string;
-    };
-    documentMessage?: {
-      url: string;
-      fileName: string;
-      mimetype: string;
-    };
-    videoMessage?: {
-      url: string;
-      caption?: string;
-      mimetype: string;
-    };
-  };
-  messageType: string;
-  messageTimestamp: number;
+export interface ConnectParams {
+  webhookUrl?: string;
+  subscribe?: string[]; // ex: ['ALL'] ou ['MESSAGE', 'CONNECTION']
+  immediate?: boolean;
+}
+
+export interface ConnectResponse {
+  qrcode?: string;
+  code?: string; // data:image/png;base64,...
+  eventString?: string;
+  jid?: string;
+  webhookUrl?: string;
 }
 
 export interface CreateInstanceParams {
-  instanceName: string;
-  qrcode: boolean;
-  integration?: string;
+  name: string;
+  token: string;
+  webhook?: string;
+  webhookEvents?: string[];
 }
 
-export interface QrCodeResponse {
-  pairingCode: string | null;
-  code: string; // QR code base64
-  count: number;
+export interface CreateInstanceResponse {
+  id: string;
+  name: string;
+  token: string;
+  webhook: string;
+  status: string;
+  createdAt: string;
+}
+
+// ========== Webhook payloads recebidos da Evolution Go ==========
+// Formato mirrors whatsmeow (Go), NÃO o formato Baileys da Evolution API original.
+
+export interface WebhookPayload {
+  event: string; // "Message" | "Connected" | "LoggedOut" | "PairSuccess" | "Receipt" | ...
+  data: unknown;
+  instanceId: string;
+  instanceToken: string;
+}
+
+export interface WebhookMessageInfo {
+  Chat: string; // JID do chat (grupo ou contato)
+  Sender: string; // JID de quem enviou, ex: "557499879409:1@s.whatsapp.net"
+  SenderAlt?: string;
+  IsFromMe: boolean;
+  IsGroup: boolean;
+  ID: string;
+  Type: string;
+  PushName?: string;
+  Timestamp: string;
+  MediaType?: string;
+}
+
+export interface WebhookMessageData {
+  Info: WebhookMessageInfo;
+  Message?: {
+    conversation?: string;
+    extendedTextMessage?: { text: string };
+    imageMessage?: { caption?: string; mimetype?: string; url?: string; base64?: string; mediaUrl?: string };
+    audioMessage?: { mimetype?: string; url?: string; base64?: string; mediaUrl?: string };
+    documentMessage?: { fileName?: string; mimetype?: string; url?: string; base64?: string; mediaUrl?: string };
+    videoMessage?: { caption?: string; mimetype?: string; url?: string; base64?: string; mediaUrl?: string };
+  };
+  IsEphemeral?: boolean;
+  IsViewOnce?: boolean;
+  IsEdit?: boolean;
+}
+
+export interface WebhookConnectionData {
+  status: 'open' | 'close' | string;
+  jid?: string;
+  pushName?: string;
 }
