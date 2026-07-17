@@ -21,7 +21,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!data && !isAuthRoute) {
           router.push('/login');
         } else if (data && isAuthRoute) {
-          router.push('/');
+          router.push('/dashboard');
         }
       }
       
