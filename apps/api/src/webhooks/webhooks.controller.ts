@@ -1,4 +1,4 @@
-import { Controller, Post, Param, Body, Headers, UnauthorizedException, Logger } from '@nestjs/common';
+import { Controller, Post, Param, Body, Headers, UnauthorizedException, Logger, Inject } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import * as crypto from 'crypto';
 import { WebhooksService } from './webhooks.service';
@@ -8,7 +8,7 @@ import { WebhooksService } from './webhooks.service';
 export class WebhooksController {
   private readonly logger = new Logger(WebhooksController.name);
 
-  constructor(private readonly webhooksService: WebhooksService) {}
+  constructor(@Inject(WebhooksService) private readonly webhooksService: WebhooksService) {}
 
   @Post('evolution/:instanceName')
   async evolutionWebhook(

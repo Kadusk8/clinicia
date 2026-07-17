@@ -202,6 +202,10 @@ export const updateDealSchema = z.object({
   notes: z.string().optional(),
 });
 
+export const updateDealStageSchema = z.object({
+  stage: z.enum(DEAL_STAGES),
+});
+
 // ==========================================
 // Conversation Validators
 // ==========================================

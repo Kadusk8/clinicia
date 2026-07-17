@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Put, Delete, Body, Param, Query, Req, UseGuards,
+  Controller, Get, Post, Put, Delete, Body, Param, Query, Req, UseGuards, Inject,
 } from '@nestjs/common';
 import { ServicesService } from './services.service';
 import { TenantGuard } from '../tenant/tenant.guard';
@@ -8,7 +8,7 @@ import { createServiceSchema, updateServiceSchema, paginationSchema } from '@crm
 @Controller('services')
 @UseGuards(TenantGuard)
 export class ServicesController {
-  constructor(private readonly servicesService: ServicesService) {}
+  constructor(@Inject(ServicesService) private readonly servicesService: ServicesService) {}
 
   @Get()
   async findAll(@Req() req: any, @Query() query: any) {

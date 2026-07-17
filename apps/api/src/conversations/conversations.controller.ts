@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Put, Param, Query, Body, Req, UseGuards,
+  Controller, Get, Post, Put, Param, Query, Body, Req, UseGuards, Inject,
 } from '@nestjs/common';
 import { ConversationsService } from './conversations.service';
 import { TenantGuard } from '../tenant/tenant.guard';
@@ -8,7 +8,7 @@ import { paginationSchema, sendMessageSchema } from '@crm-clinicas/shared';
 @Controller('conversations')
 @UseGuards(TenantGuard)
 export class ConversationsController {
-  constructor(private readonly conversationsService: ConversationsService) {}
+  constructor(@Inject(ConversationsService) private readonly conversationsService: ConversationsService) {}
 
   @Get()
   async findAll(@Req() req: any, @Query() query: any) {

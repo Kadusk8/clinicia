@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Body, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Body, Req, UseGuards, Inject } from '@nestjs/common';
 import { ClinicsService } from './clinics.service';
 import { TenantGuard } from '../tenant/tenant.guard';
 import { updateClinicSchema } from '@crm-clinicas/shared';
@@ -6,7 +6,7 @@ import { updateClinicSchema } from '@crm-clinicas/shared';
 @Controller('clinics')
 @UseGuards(TenantGuard)
 export class ClinicsController {
-  constructor(private readonly clinicsService: ClinicsService) {}
+  constructor(@Inject(ClinicsService) private readonly clinicsService: ClinicsService) {}
 
   @Get('me')
   async getMe(@Req() req: any) {

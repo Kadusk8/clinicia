@@ -1,11 +1,11 @@
-import { Controller, Get, Query, Req, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, Req, Res, UseGuards, Inject } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { TenantGuard } from '../tenant/tenant.guard';
 
 @Controller('reports')
 @UseGuards(TenantGuard)
 export class ReportsController {
-  constructor(private readonly reportsService: ReportsService) {}
+  constructor(@Inject(ReportsService) private readonly reportsService: ReportsService) {}
 
   @Get('overview')
   async getOverview(@Req() req: any) {

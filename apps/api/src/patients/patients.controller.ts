@@ -9,6 +9,7 @@ import {
   Query,
   Req,
   UseGuards,
+  Inject,
 } from '@nestjs/common';
 import { PatientsService } from './patients.service';
 import { TenantGuard } from '../tenant/tenant.guard';
@@ -17,7 +18,7 @@ import { createPatientSchema, updatePatientSchema, paginationSchema } from '@crm
 @Controller('patients')
 @UseGuards(TenantGuard)
 export class PatientsController {
-  constructor(private readonly patientsService: PatientsService) {}
+  constructor(@Inject(PatientsService) private readonly patientsService: PatientsService) {}
 
   @Get()
   async findAll(@Req() req: any, @Query() query: any) {

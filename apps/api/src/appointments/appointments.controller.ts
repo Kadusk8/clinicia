@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Put, Delete, Body, Param, Query, Req, UseGuards,
+  Controller, Get, Post, Put, Delete, Body, Param, Query, Req, UseGuards, Inject,
 } from '@nestjs/common';
 import { AppointmentsService } from './appointments.service';
 import { TenantGuard } from '../tenant/tenant.guard';
@@ -12,7 +12,7 @@ import {
 @Controller('appointments')
 @UseGuards(TenantGuard)
 export class AppointmentsController {
-  constructor(private readonly appointmentsService: AppointmentsService) {}
+  constructor(@Inject(AppointmentsService) private readonly appointmentsService: AppointmentsService) {}
 
   @Get()
   async findAll(@Req() req: any, @Query() query: any) {

@@ -1,14 +1,14 @@
 import {
-  Controller, Get, Post, Put, Body, Param, Query, Req, UseGuards,
+  Controller, Get, Post, Put, Body, Param, Query, Req, UseGuards, Inject,
 } from '@nestjs/common';
 import { PipelineService } from './pipeline.service';
 import { TenantGuard } from '../tenant/tenant.guard';
-import { createDealSchema, updateDealSchema, paginationSchema } from '@crm-clinicas/shared';
+import { createDealSchema, updateDealSchema, updateDealStageSchema, paginationSchema } from '@crm-clinicas/shared';
 
 @Controller('pipeline')
 @UseGuards(TenantGuard)
 export class PipelineController {
-  constructor(private readonly pipelineService: PipelineService) {}
+  constructor(@Inject(PipelineService) private readonly pipelineService: PipelineService) {}
 
   @Get()
   async findAll(@Req() req: any, @Query() query: any) {
@@ -37,8 +37,9 @@ export class PipelineController {
   async updateStage(
     @Req() req: any,
     @Param('id') id: string,
-    @Body('stage') stage: string,
+    @Body() body: any,
   ) {
+    const { stage } = updateDealStageSchema.parse(body);
     return this.pipelineService.updateStage(req.clinicId, id, stage);
   }
 }
