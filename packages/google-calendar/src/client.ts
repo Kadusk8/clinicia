@@ -150,9 +150,11 @@ export class GoogleCalendarClient {
         },
       });
       const busy = data.calendars?.[calendarId]?.busy ?? [];
-      return busy
-        .filter((b): b is { start: string; end: string } => !!b.start && !!b.end)
-        .map((b) => ({ start: b.start, end: b.end }));
+      const result: BusyInterval[] = [];
+      for (const b of busy) {
+        if (b.start && b.end) result.push({ start: b.start, end: b.end });
+      }
+      return result;
     });
   }
 }
