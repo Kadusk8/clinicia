@@ -24,36 +24,48 @@ export class GoogleCalendarService {
     return process.env.BETTER_AUTH_SECRET || 'secret-key-for-dev-only';
   }
 
-  private signState(clinicId: string): string {
-    const payload = Buffer.from(JSON.stringify({ clinicId, ts: Date.now() })).toString('base64url');
+  private signState(clinicId: string, nonce: string): string {
+    const payload = Buffer.from(JSON.stringify({ clinicId, nonce, ts: Date.now() })).toString('base64url');
     const sig = createHmac('sha256', this.stateSecret()).update(payload).digest('base64url');
     return `${payload}.${sig}`;
   }
 
-  private verifyState(state: string): string {
+  private verifyState(state: string): { clinicId: string; nonce: string } {
     const [payload, sig] = state.split('.');
     if (!payload || !sig) throw new Error('Invalid state format');
 
     const expectedSig = createHmac('sha256', this.stateSecret()).update(payload).digest('base64url');
     if (sig !== expectedSig) throw new Error('Invalid state signature');
 
-    const { clinicId, ts } = JSON.parse(Buffer.from(payload, 'base64url').toString()) as {
+    const { clinicId, nonce, ts } = JSON.parse(Buffer.from(payload, 'base64url').toString()) as {
       clinicId: string;
+      nonce: string;
       ts: number;
     };
     if (Date.now() - ts > STATE_TTL_MS) throw new Error('State expired');
-    return clinicId;
+    return { clinicId, nonce };
   }
 
-  getAuthUrl(clinicId: string): string {
+  getAuthUrl(clinicId: string, nonce: string): string {
     const client = this.getClient();
-    return client.getAuthUrl(this.signState(clinicId));
+    return client.getAuthUrl(this.signState(clinicId, nonce));
   }
 
-  async handleCallback(code: string, state: string): Promise<{ success: boolean; error?: string }> {
+  async handleCallback(
+    code: string,
+    state: string,
+    cookieNonce: string,
+  ): Promise<{ success: boolean; error?: string }> {
     let clinicId: string;
     try {
-      clinicId = this.verifyState(state);
+      const parsed = this.verifyState(state);
+      // Binds this callback to the same browser that requested the auth URL — without
+      // this, a signed-but-unbound state could be harvested by an attacker (via their
+      // own legitimate auth-url call) and replayed by tricking a different user into
+      // completing the consent screen, linking the victim's calendar to the attacker's
+      // clinic.
+      if (parsed.nonce !== cookieNonce) throw new Error('Nonce mismatch');
+      clinicId = parsed.clinicId;
     } catch (error) {
       this.logger.warn(`Invalid Google OAuth state: ${error instanceof Error ? error.message : error}`);
       return { success: false, error: 'invalid_state' };
