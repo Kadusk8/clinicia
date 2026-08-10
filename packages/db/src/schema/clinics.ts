@@ -22,6 +22,12 @@ export const clinics = pgTable('clinics', {
   agentSystemPrompt: text('agent_system_prompt'),
   agentKnowledgeBase: text('agent_knowledge_base'),
 
+  // Google Calendar integration (single calendar per clinic)
+  googleCalendarId: varchar('google_calendar_id', { length: 255 }),
+  googleCalendarEmail: varchar('google_calendar_email', { length: 255 }),
+  googleRefreshToken: text('google_refresh_token'),
+  googleCalendarConnectedAt: timestamp('google_calendar_connected_at'),
+
   // Billing & status
   plan: varchar('plan', { length: 50 }).default('trial'), // trial | starter | pro | enterprise
   active: boolean('active').default(true),

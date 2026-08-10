@@ -7,6 +7,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "@crm-clinicas/db": "workspace:*",
+    "@crm-clinicas/google-calendar": "workspace:*",
     "@crm-clinicas/shared": "workspace:*",
     "drizzle-orm": "^0.38.3",
     "openai": "^4.104.0"

@@ -1,7 +1,13 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { Suspense, useEffect, useState, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
+
+interface GoogleCalendarStatus {
+  connected: boolean;
+  email: string | null;
+}
 
 interface ClinicData {
   id: string;
@@ -26,10 +32,27 @@ interface KbDocument {
 }
 
 export default function SettingsPage() {
+  return (
+    <Suspense fallback={null}>
+      <SettingsPageContent />
+    </Suspense>
+  );
+}
+
+function SettingsPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [clinic, setClinic] = useState<ClinicData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  // Google Calendar state
+  const [gcalStatus, setGcalStatus] = useState<GoogleCalendarStatus | null>(null);
+  const [gcalLoading, setGcalLoading] = useState(true);
+  const [gcalConnecting, setGcalConnecting] = useState(false);
+  const [gcalDisconnecting, setGcalDisconnecting] = useState(false);
+  const [gcalMessage, setGcalMessage] = useState<string | null>(null);
 
   // Form state
   const [name, setName]       = useState('');
@@ -60,7 +83,50 @@ export default function SettingsPage() {
     api.getKnowledgeBase()
       .then((data) => setKbDocs(data as KbDocument[]))
       .catch(() => null);
+
+    api.getGoogleCalendarStatus()
+      .then((data) => setGcalStatus(data as GoogleCalendarStatus))
+      .catch(() => null)
+      .finally(() => setGcalLoading(false));
   }, []);
+
+  useEffect(() => {
+    const result = searchParams.get('google_calendar');
+    if (!result) return;
+
+    setGcalMessage(
+      result === 'connected'
+        ? 'Google Agenda conectada com sucesso!'
+        : 'Não foi possível conectar ao Google Agenda. Tente novamente.',
+    );
+    router.replace('/settings');
+  }, [searchParams, router]);
+
+  async function handleConnectGoogle() {
+    if (gcalConnecting) return;
+    setGcalConnecting(true);
+    try {
+      const { url } = await api.getGoogleCalendarAuthUrl() as { url: string };
+      window.location.href = url;
+    } catch {
+      setGcalMessage('Não foi possível iniciar a conexão com o Google Agenda.');
+      setGcalConnecting(false);
+    }
+  }
+
+  async function handleDisconnectGoogle() {
+    if (gcalDisconnecting) return;
+    if (!confirm('Desconectar a Google Agenda? Consultas futuras deixarão de ser sincronizadas.')) return;
+    setGcalDisconnecting(true);
+    try {
+      await api.disconnectGoogleCalendar();
+      setGcalStatus({ connected: false, email: null });
+    } catch {
+      setGcalMessage('Não foi possível desconectar. Tente novamente.');
+    } finally {
+      setGcalDisconnecting(false);
+    }
+  }
 
   async function handleKbAdd() {
     if (!kbTitle.trim() || !kbContent.trim() || kbSaving) return;
@@ -229,6 +295,60 @@ export default function SettingsPage() {
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Google Calendar */}
+        <div className="card p-6">
+          <h2 className="text-lg font-semibold text-surface-900 mb-1">Google Agenda</h2>
+          <p className="text-sm text-surface-400 mb-4">
+            Sincroniza as consultas da clínica com uma agenda do Google: horários marcados aqui aparecem lá,
+            e compromissos criados direto no Google bloqueiam o horário para o agente IA.
+          </p>
+
+          {gcalMessage && (
+            <div className="mb-4 p-3 rounded-xl bg-surface-50 border border-surface-200 text-sm text-surface-700 flex items-center justify-between gap-3">
+              <span>{gcalMessage}</span>
+              <button onClick={() => setGcalMessage(null)} className="text-surface-400 hover:text-surface-600">
+                ✕
+              </button>
+            </div>
+          )}
+
+          {gcalLoading ? (
+            <div className="h-16 bg-surface-100 rounded-xl animate-pulse" />
+          ) : gcalStatus?.connected ? (
+            <div className="flex items-center gap-4 p-4 bg-accent-50 border border-accent-200 rounded-xl">
+              <span className="text-2xl">🟢</span>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-accent-800">Google Agenda conectada</p>
+                {gcalStatus.email && (
+                  <p className="text-sm text-accent-600 truncate">Conta: {gcalStatus.email}</p>
+                )}
+              </div>
+              <button
+                onClick={handleDisconnectGoogle}
+                disabled={gcalDisconnecting}
+                className="text-xs text-red-500 hover:text-red-700 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 whitespace-nowrap"
+              >
+                {gcalDisconnecting ? 'Desconectando...' : 'Desconectar'}
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-4 p-4 bg-surface-50 border border-surface-200 rounded-xl">
+              <span className="text-2xl">⚪</span>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-surface-700">Google Agenda não conectada</p>
+                <p className="text-sm text-surface-400">Conecte a conta Google da clínica para sincronizar a agenda.</p>
+              </div>
+              <button
+                onClick={handleConnectGoogle}
+                disabled={gcalConnecting}
+                className="btn-primary text-sm disabled:opacity-60 whitespace-nowrap"
+              >
+                {gcalConnecting ? 'Redirecionando...' : 'Conectar'}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Knowledge Base */}

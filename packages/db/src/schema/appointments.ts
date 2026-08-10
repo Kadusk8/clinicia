@@ -28,6 +28,7 @@ export const appointments = pgTable(
     notes: text('notes'),
     cancelledAt: timestamp('cancelled_at'),
     cancellationReason: text('cancellation_reason'),
+    googleEventId: varchar('google_event_id', { length: 255 }),
     createdAt: timestamp('created_at').defaultNow(),
     updatedAt: timestamp('updated_at').defaultNow(),
   },

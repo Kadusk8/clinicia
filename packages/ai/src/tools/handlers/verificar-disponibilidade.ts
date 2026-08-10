@@ -2,6 +2,7 @@ import { db, schema } from '@crm-clinicas/db';
 import { and, eq, inArray, lt, gt } from 'drizzle-orm';
 import type { WorkingHours, DayOfWeek } from '@crm-clinicas/shared';
 import type { ToolContext } from '../context.js';
+import { getGoogleBusyIntervals } from '../../google-calendar-sync.js';
 
 const DAY_KEYS: DayOfWeek[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const MAX_DAYS = 30;
@@ -107,6 +108,18 @@ export async function verificarDisponibilidade(
       ),
     );
 
+  // 3b. Fetch busy blocks from the clinic's shared Google Calendar (if connected).
+  // Single calendar for the whole clinic, so it applies to every professional.
+  const googleBusy = await getGoogleBusyIntervals(
+    context.clinicId,
+    fromDate.toISOString(),
+    effectiveTo.toISOString(),
+  );
+  const googleBusyIntervals = googleBusy.map((b) => ({
+    start: new Date(b.start),
+    end: new Date(b.end),
+  }));
+
   // 4. Generate and filter slots per professional
   const now = new Date();
   const result: Array<{
@@ -150,10 +163,10 @@ export async function verificarDisponibilidade(
             continue;
           }
 
-          // Check for conflicts
-          const hasConflict = profConflicts.some(
-            (c) => c.startsAt < slotEnd && c.endsAt > slotStart,
-          );
+          // Check for conflicts (internal appointments + shared Google Calendar busy blocks)
+          const hasConflict =
+            profConflicts.some((c) => c.startsAt < slotEnd && c.endsAt > slotStart) ||
+            googleBusyIntervals.some((b) => b.start < slotEnd && b.end > slotStart);
 
           if (!hasConflict) {
             slots.push({ startsAt: slotStart.toISOString(), endsAt: slotEnd.toISOString() });

@@ -2,6 +2,7 @@ import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { db, schema } from '@crm-clinicas/db';
 import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
 import { NotFoundError, type PaginationInput } from '@crm-clinicas/shared';
+import { pushAppointmentToGoogle, updateAppointmentInGoogle, removeAppointmentFromGoogle } from '@crm-clinicas/ai';
 import { FollowUpsService } from '../follow-ups/follow-ups.service';
 
 @Injectable()
@@ -103,6 +104,19 @@ export class AppointmentsService {
       startsAt,
     );
 
+    const [patient] = await db
+      .select({ name: schema.patients.name })
+      .from(schema.patients)
+      .where(eq(schema.patients.id, data.patientId))
+      .limit(1);
+
+    await pushAppointmentToGoogle(
+      clinicId,
+      appointment,
+      `${service[0]?.name ?? 'Consulta'} - ${patient?.name ?? ''}`.trim(),
+      'Agendado via CRM.',
+    );
+
     return appointment;
   }
 
@@ -121,14 +135,31 @@ export class AppointmentsService {
       )
       .returning();
 
-    if (!result[0]) throw new NotFoundError('Agendamento', id);
+    const appointment = result[0];
+    if (!appointment) throw new NotFoundError('Agendamento', id);
 
     // Cancel pending follow-ups if appointment is cancelled
     if (data.status === 'cancelled') {
       await this.followUpsService.cancelForAppointment(id);
+      await removeAppointmentFromGoogle(clinicId, appointment);
+    } else if (data.startsAt || data.endsAt) {
+      const [row] = await db
+        .select({ serviceName: schema.services.name, patientName: schema.patients.name })
+        .from(schema.appointments)
+        .leftJoin(schema.services, eq(schema.appointments.serviceId, schema.services.id))
+        .leftJoin(schema.patients, eq(schema.appointments.patientId, schema.patients.id))
+        .where(eq(schema.appointments.id, id))
+        .limit(1);
+
+      await updateAppointmentInGoogle(
+        clinicId,
+        appointment,
+        `${row?.serviceName ?? 'Consulta'} - ${row?.patientName ?? ''}`.trim(),
+        'Atualizado via CRM.',
+      );
     }
 
-    return result[0];
+    return appointment;
   }
 
   async cancel(clinicId: string, id: string, reason?: string) {

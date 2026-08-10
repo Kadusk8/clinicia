@@ -164,6 +164,19 @@ class ApiClient {
     return this.request('PATCH', '/clinics/me', data);
   }
 
+  // Google Calendar
+  getGoogleCalendarStatus() {
+    return this.request('GET', '/google-calendar/status');
+  }
+
+  getGoogleCalendarAuthUrl() {
+    return this.request('GET', '/google-calendar/auth-url');
+  }
+
+  disconnectGoogleCalendar() {
+    return this.request('POST', '/google-calendar/disconnect');
+  }
+
   // Reports
   getOverview() {
     return this.request('GET', '/reports/overview');

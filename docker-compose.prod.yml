@@ -23,6 +23,9 @@ services:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://clinicia-api.useia.api.br}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-https://clinicia.useia.api.br}
       - ASAAS_WEBHOOK_TOKEN=${ASAAS_WEBHOOK_TOKEN}
+      - GOOGLE_CALENDAR_CLIENT_ID=${GOOGLE_CALENDAR_CLIENT_ID:-}
+      - GOOGLE_CALENDAR_CLIENT_SECRET=${GOOGLE_CALENDAR_CLIENT_SECRET:-}
+      - GOOGLE_CALENDAR_REDIRECT_URI=${GOOGLE_CALENDAR_REDIRECT_URI:-https://clinicia-api.useia.api.br/api/google-calendar/callback}
       - PORT=3001
     networks:
       - caos
@@ -62,6 +65,9 @@ services:
       - NODE_ENV=production
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=redis://clinicia_redis:6379
+      - GOOGLE_CALENDAR_CLIENT_ID=${GOOGLE_CALENDAR_CLIENT_ID:-}
+      - GOOGLE_CALENDAR_CLIENT_SECRET=${GOOGLE_CALENDAR_CLIENT_SECRET:-}
+      - GOOGLE_CALENDAR_REDIRECT_URI=${GOOGLE_CALENDAR_REDIRECT_URI:-https://clinicia-api.useia.api.br/api/google-calendar/callback}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       # As chaves de LLM do agente são POR CLÍNICA (definidas ao criar/editar o agente).
       # OPENAI_API_KEY acima é OPCIONAL — só para gerar embeddings da base de conhecimento (RAG).

@@ -1,6 +1,7 @@
 import { db, schema } from '@crm-clinicas/db';
 import { and, eq } from 'drizzle-orm';
 import type { ToolContext } from '../context.js';
+import { updateAppointmentInGoogle, removeAppointmentFromGoogle } from '../../google-calendar-sync.js';
 
 export async function cancelarOuRemarcar(
   input: {
@@ -55,6 +56,7 @@ export async function cancelarOuRemarcar(
       .where(eq(schema.appointments.id, input.appointmentId));
 
     await cancelFollowUps();
+    await removeAppointmentFromGoogle(context.clinicId, apt);
 
     return JSON.stringify({ success: true, action: 'cancelled' });
   }
@@ -65,9 +67,15 @@ export async function cancelarOuRemarcar(
   }
 
   const [service] = await db
-    .select({ durationMin: schema.services.durationMin })
+    .select({ name: schema.services.name, durationMin: schema.services.durationMin })
     .from(schema.services)
     .where(eq(schema.services.id, apt.serviceId))
+    .limit(1);
+
+  const [patient] = await db
+    .select({ name: schema.patients.name })
+    .from(schema.patients)
+    .where(eq(schema.patients.id, apt.patientId))
     .limit(1);
 
   const durationMin = service?.durationMin ?? 30;
@@ -114,6 +122,13 @@ export async function cancelarOuRemarcar(
   if (followUpsToInsert.length > 0) {
     await db.insert(schema.followUps).values(followUpsToInsert);
   }
+
+  await updateAppointmentInGoogle(
+    context.clinicId,
+    { googleEventId: apt.googleEventId, startsAt: newStartsAt, endsAt: newEndsAt },
+    `${service?.name ?? 'Consulta'} - ${patient?.name ?? ''}`.trim(),
+    'Remarcado via assistente virtual (WhatsApp).',
+  );
 
   return JSON.stringify({
     success: true,

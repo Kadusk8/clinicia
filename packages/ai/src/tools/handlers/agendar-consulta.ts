@@ -1,6 +1,7 @@
 import { db, schema } from '@crm-clinicas/db';
 import { and, eq } from 'drizzle-orm';
 import type { ToolContext } from '../context.js';
+import { pushAppointmentToGoogle } from '../../google-calendar-sync.js';
 
 export async function agendarConsulta(
   input: {
@@ -29,7 +30,7 @@ export async function agendarConsulta(
 
   // Validate patient
   const [patient] = await db
-    .select({ id: schema.patients.id })
+    .select({ id: schema.patients.id, name: schema.patients.name })
     .from(schema.patients)
     .where(
       and(
@@ -99,6 +100,13 @@ export async function agendarConsulta(
   if (followUpsToInsert.length > 0) {
     await db.insert(schema.followUps).values(followUpsToInsert);
   }
+
+  await pushAppointmentToGoogle(
+    context.clinicId,
+    appointment,
+    `${service.name} - ${patient.name}`,
+    'Agendado via assistente virtual (WhatsApp).',
+  );
 
   const startsAtFormatted = startsAt.toLocaleString('pt-BR', {
     timeZone: 'America/Sao_Paulo',

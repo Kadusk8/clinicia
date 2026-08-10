@@ -14,6 +14,7 @@
     "@crm-clinicas/ai": "workspace:*",
     "@crm-clinicas/db": "workspace:*",
     "@crm-clinicas/evolution": "workspace:*",
+    "@crm-clinicas/google-calendar": "workspace:*",
     "@crm-clinicas/shared": "workspace:*",
     "@fastify/static": "^9.1.3",
     "@nestjs/common": "^11.0.0",
