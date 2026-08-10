@@ -10,6 +10,7 @@ COPY apps/worker/package.json apps/worker/
 COPY packages/db/package.json packages/db/
 COPY packages/shared/package.json packages/shared/
 COPY packages/evolution/package.json packages/evolution/
+COPY packages/google-calendar/package.json packages/google-calendar/
 COPY packages/ai/package.json packages/ai/
 RUN pnpm install --frozen-lockfile
 COPY . .
