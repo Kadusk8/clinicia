@@ -14,6 +14,7 @@ const navItems = [
   { href: '/services', label: 'Serviços', icon: '🩺' },
   { href: '/professionals', label: 'Profissionais', icon: '👨‍⚕️' },
   { href: '/reports', label: 'Relatórios', icon: '📊' },
+  { href: '/settings', label: 'Configurações', icon: '⚙️' },
 ];
 
 export function Sidebar() {
