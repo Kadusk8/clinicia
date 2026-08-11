@@ -16,7 +16,7 @@ class ApiClient {
     const response = await fetch(`${this.baseUrl}/api${path}`, {
       method,
       headers: {
-        'Content-Type': 'application/json',
+        ...(body ? { 'Content-Type': 'application/json' } : {}),
         ...options?.headers,
       },
       credentials: 'include',
