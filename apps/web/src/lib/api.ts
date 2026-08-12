@@ -59,6 +59,10 @@ class ApiClient {
     return this.request('GET', `/patients/${id}`);
   }
 
+  getPatientHistory(id: string) {
+    return this.request('GET', `/patients/${id}/history`);
+  }
+
   createPatient(data: unknown) {
     return this.request('POST', '/patients', data);
   }

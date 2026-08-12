@@ -32,6 +32,11 @@ export class PatientsController {
     return this.patientsService.findById(req.clinicId, id);
   }
 
+  @Get(':id/history')
+  async getHistory(@Req() req: any, @Param('id') id: string) {
+    return this.patientsService.getHistory(req.clinicId, id);
+  }
+
   @Post()
   async create(@Req() req: any, @Body() body: any) {
     const data = createPatientSchema.parse(body);

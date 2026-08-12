@@ -58,6 +58,44 @@ export class PatientsService {
     return result[0];
   }
 
+  async getHistory(clinicId: string, id: string) {
+    const patient = await this.findById(clinicId, id);
+
+    const deals = await db
+      .select({
+        id: schema.deals.id,
+        stage: schema.deals.stage,
+        valueCents: schema.deals.valueCents,
+        serviceName: schema.services.name,
+        createdAt: schema.deals.createdAt,
+        updatedAt: schema.deals.updatedAt,
+      })
+      .from(schema.deals)
+      .leftJoin(schema.services, eq(schema.deals.serviceId, schema.services.id))
+      .where(and(eq(schema.deals.clinicId, clinicId), eq(schema.deals.patientId, id)))
+      .orderBy(desc(schema.deals.updatedAt));
+
+    const appointments = await db
+      .select({
+        id: schema.appointments.id,
+        status: schema.appointments.status,
+        startsAt: schema.appointments.startsAt,
+        serviceName: schema.services.name,
+        professionalName: schema.professionals.name,
+      })
+      .from(schema.appointments)
+      .leftJoin(schema.services, eq(schema.appointments.serviceId, schema.services.id))
+      .leftJoin(schema.professionals, eq(schema.appointments.professionalId, schema.professionals.id))
+      .where(and(eq(schema.appointments.clinicId, clinicId), eq(schema.appointments.patientId, id)))
+      .orderBy(desc(schema.appointments.startsAt));
+
+    const serviceNames = new Set<string>();
+    for (const d of deals) if (d.serviceName) serviceNames.add(d.serviceName);
+    for (const a of appointments) if (a.serviceName) serviceNames.add(a.serviceName);
+
+    return { patient, servicesSought: [...serviceNames], deals, appointments };
+  }
+
   async findByPhone(clinicId: string, phone: string) {
     const result = await db
       .select()

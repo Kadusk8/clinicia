@@ -27,18 +27,181 @@ const STAGES = [
   { key: 'lost',       label: 'Perdido',         color: 'bg-red-50      border-red-200' },
 ];
 
+const APPOINTMENT_STATUS_LABELS: Record<string, string> = {
+  scheduled: 'Agendada',
+  confirmed: 'Confirmada',
+  completed: 'Realizada',
+  no_show: 'Faltou',
+  cancelled: 'Cancelada',
+};
+
+interface PatientDetail {
+  id: string;
+  name: string | null;
+  phone: string;
+  email: string | null;
+  insurance: string | null;
+  notes: string | null;
+  tags: string[] | null;
+}
+
+interface PatientHistoryDeal {
+  id: string;
+  stage: string;
+  valueCents: number | null;
+  serviceName: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface PatientHistoryAppointment {
+  id: string;
+  status: string;
+  startsAt: string;
+  serviceName: string | null;
+  professionalName: string | null;
+}
+
+interface PatientHistory {
+  patient: PatientDetail;
+  servicesSought: string[];
+  deals: PatientHistoryDeal[];
+  appointments: PatientHistoryAppointment[];
+}
+
 function formatMoney(cents: number | null) {
   if (!cents) return null;
   return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-function DealCard({ deal, onMove }: { deal: Deal; onMove: (id: string, stage: string) => void }) {
+function formatDateTime(iso: string) {
+  return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+function PatientDetailModal({ patientId, onClose }: { patientId: string; onClose: () => void }) {
+  const [data, setData] = useState<PatientHistory | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError('');
+    api.getPatientHistory(patientId)
+      .then((res) => { if (!cancelled) setData(res as PatientHistory); })
+      .catch(() => { if (!cancelled) setError('Não foi possível carregar os dados do paciente.'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [patientId]);
+
+  type TimelineItem =
+    | { kind: 'deal'; date: string; item: PatientHistoryDeal }
+    | { kind: 'appointment'; date: string; item: PatientHistoryAppointment };
+
+  const timeline: TimelineItem[] = data
+    ? [
+        ...data.deals.map((d): TimelineItem => ({ kind: 'deal', date: d.updatedAt, item: d })),
+        ...data.appointments.map((a): TimelineItem => ({ kind: 'appointment', date: a.startsAt, item: a })),
+      ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    : [];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] flex flex-col">
+        <div className="px-6 py-4 border-b border-surface-200 flex items-center justify-between flex-shrink-0">
+          <h2 className="font-semibold text-surface-900">
+            {data?.patient.name ?? 'Paciente'}
+          </h2>
+          <button onClick={onClose} className="text-surface-400 hover:text-surface-600 text-xl">×</button>
+        </div>
+
+        <div className="p-6 overflow-y-auto space-y-6">
+          {loading ? (
+            <div className="space-y-3">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-4 bg-surface-100 rounded animate-pulse" />
+              ))}
+            </div>
+          ) : error ? (
+            <p className="text-sm text-red-500">{error}</p>
+          ) : data ? (
+            <>
+              {/* Contact info */}
+              <div className="space-y-1 text-sm">
+                <p className="text-surface-600">📞 {data.patient.phone}</p>
+                {data.patient.email && <p className="text-surface-600">✉️ {data.patient.email}</p>}
+                {data.patient.insurance && <p className="text-surface-600">🏥 {data.patient.insurance}</p>}
+                {data.patient.notes && (
+                  <p className="text-surface-500 text-xs mt-2 italic">{data.patient.notes}</p>
+                )}
+              </div>
+
+              {/* Services sought */}
+              {data.servicesSought.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-semibold text-surface-400 uppercase mb-2">Serviços buscados</h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {data.servicesSought.map((s) => (
+                      <span key={s} className="badge-neutral text-xs">{s}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* History timeline */}
+              <div>
+                <h3 className="text-xs font-semibold text-surface-400 uppercase mb-2">Histórico</h3>
+                {timeline.length === 0 ? (
+                  <p className="text-sm text-surface-400">Sem histórico ainda.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {timeline.map((t) => (
+                      <div
+                        key={`${t.kind}-${t.item.id}`}
+                        className="flex items-start gap-3 p-2.5 rounded-lg bg-surface-50 border border-surface-100"
+                      >
+                        <span className="text-base flex-shrink-0">
+                          {t.kind === 'deal' ? '📈' : '📅'}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          {t.kind === 'deal' ? (
+                            <p className="text-sm text-surface-700">
+                              Deal movido para <span className="font-medium">{STAGES.find((s) => s.key === t.item.stage)?.label ?? t.item.stage}</span>
+                              {t.item.serviceName && <> — {t.item.serviceName}</>}
+                              {formatMoney(t.item.valueCents) && <> ({formatMoney(t.item.valueCents)})</>}
+                            </p>
+                          ) : (
+                            <p className="text-sm text-surface-700">
+                              Consulta {APPOINTMENT_STATUS_LABELS[t.item.status] ?? t.item.status}
+                              {t.item.serviceName && <> — {t.item.serviceName}</>}
+                              {t.item.professionalName && <> com {t.item.professionalName}</>}
+                            </p>
+                          )}
+                          <p className="text-xs text-surface-400 mt-0.5">{formatDateTime(t.date)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DealCard({ deal, onMove, onOpen }: { deal: Deal; onMove: (id: string, stage: string) => void; onOpen: (patientId: string) => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const currentIdx = STAGES.findIndex((s) => s.key === deal.stage);
   const nextStages = STAGES.filter((s, i) => i !== currentIdx);
 
   return (
-    <div className="bg-white rounded-xl border border-surface-200 p-3 shadow-sm hover:shadow-md transition-shadow relative">
+    <div
+      onClick={() => onOpen(deal.patientId)}
+      className="bg-white rounded-xl border border-surface-200 p-3 shadow-sm hover:shadow-md transition-shadow relative cursor-pointer"
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="font-medium text-sm text-surface-800 truncate">
@@ -51,7 +214,7 @@ function DealCard({ deal, onMove }: { deal: Deal; onMove: (id: string, stage: st
             <p className="text-xs font-medium text-accent-600 mt-1">{formatMoney(deal.valueCents)}</p>
           )}
         </div>
-        <div className="relative flex-shrink-0">
+        <div className="relative flex-shrink-0" onClick={(e) => e.stopPropagation()}>
           <button
             onClick={() => setMenuOpen((o) => !o)}
             className="w-6 h-6 flex items-center justify-center text-surface-400 hover:text-surface-600 rounded hover:bg-surface-100 text-xs"
@@ -85,6 +248,7 @@ export default function PipelinePage() {
   const [kanban, setKanban] = useState<Record<string, Deal[]>>({});
   const [loading, setLoading] = useState(true);
   const [movingId, setMovingId] = useState<string | null>(null);
+  const [openPatientId, setOpenPatientId] = useState<string | null>(null);
 
   async function fetchKanban() {
     try {
@@ -169,7 +333,7 @@ export default function PipelinePage() {
                     </div>
                   ) : (
                     deals.map((deal) => (
-                      <DealCard key={deal.id} deal={deal} onMove={handleMove} />
+                      <DealCard key={deal.id} deal={deal} onMove={handleMove} onOpen={setOpenPatientId} />
                     ))
                   )}
                 </div>
@@ -178,6 +342,10 @@ export default function PipelinePage() {
           );
         })}
       </div>
+
+      {openPatientId && (
+        <PatientDetailModal patientId={openPatientId} onClose={() => setOpenPatientId(null)} />
+      )}
     </div>
   );
 }
