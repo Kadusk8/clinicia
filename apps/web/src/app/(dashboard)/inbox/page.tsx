@@ -87,13 +87,15 @@ export default function InboxPage() {
     try {
       const res = await api.getConversations({ pageSize: '50' }) as { data: Conversation[] };
       setConversations(res.data ?? []);
-      // Keep selected in sync with latest status
-      if (selected) {
-        const fresh = res.data?.find((c: Conversation) => c.id === selected.id);
-        if (fresh) setSelected(fresh);
-      }
+      // Keep selected in sync with latest status (functional update avoids
+      // stale-closure races with whichever conversation the user just clicked)
+      setSelected((prev) => {
+        if (!prev) return prev;
+        const fresh = res.data?.find((c: Conversation) => c.id === prev.id);
+        return fresh ?? prev;
+      });
     } catch { /* ignore */ }
-  }, [selected]);
+  }, []);
 
   useEffect(() => {
     fetchConversations();
