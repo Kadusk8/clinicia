@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { db, schema } from '@crm-clinicas/db';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, sql, getTableColumns } from 'drizzle-orm';
 import { NotFoundError, type PaginationInput } from '@crm-clinicas/shared';
 import { EvolutionClient } from '@crm-clinicas/evolution';
 
@@ -13,8 +13,13 @@ export class ConversationsService {
 
     const [data, countResult] = await Promise.all([
       db
-        .select()
+        .select({
+          ...getTableColumns(schema.conversations),
+          patientName: schema.patients.name,
+          patientPhone: schema.patients.phone,
+        })
         .from(schema.conversations)
+        .leftJoin(schema.patients, eq(schema.patients.id, schema.conversations.patientId))
         .where(eq(schema.conversations.clinicId, clinicId))
         .orderBy(desc(schema.conversations.lastMessageAt))
         .limit(pageSize)
@@ -31,8 +36,13 @@ export class ConversationsService {
 
   async findById(clinicId: string, id: string) {
     const result = await db
-      .select()
+      .select({
+        ...getTableColumns(schema.conversations),
+        patientName: schema.patients.name,
+        patientPhone: schema.patients.phone,
+      })
       .from(schema.conversations)
+      .leftJoin(schema.patients, eq(schema.patients.id, schema.conversations.patientId))
       .where(
         and(
           eq(schema.conversations.clinicId, clinicId),

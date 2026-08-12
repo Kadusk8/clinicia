@@ -15,6 +15,8 @@ interface Conversation {
   unreadCount: number | null;
   lastMessageAt: string | null;
   assignedUserId: string | null;
+  patientName: string | null;
+  patientPhone: string | null;
 }
 
 interface Message {
@@ -231,7 +233,7 @@ export default function InboxPage() {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <span className="font-medium text-sm text-surface-800 truncate">
-                      {conv.externalId ?? '—'}
+                      {conv.patientName ?? conv.externalId ?? '—'}
                     </span>
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       {(conv.unreadCount ?? 0) > 0 && (
@@ -268,7 +270,7 @@ export default function InboxPage() {
             <div className="px-5 py-3 border-b border-surface-200 flex items-center justify-between flex-shrink-0">
               <div>
                 <p className="font-semibold text-surface-900">
-                  {selected.externalId ?? 'Paciente'}
+                  {selected.patientName ?? selected.externalId ?? 'Paciente'}
                 </p>
                 <span className={`text-xs px-2 py-0.5 rounded font-medium ${statusBadge(selected.status)}`}>
                   {statusLabel(selected.status)}
