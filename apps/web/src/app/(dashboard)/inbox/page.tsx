@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
+import { useVisibleInterval } from '@/lib/use-visible-interval';
 
 // ==========================================
 // Types
@@ -101,9 +102,8 @@ export default function InboxPage() {
 
   useEffect(() => {
     fetchConversations();
-    const id = setInterval(fetchConversations, 5_000);
-    return () => clearInterval(id);
   }, [fetchConversations]);
+  useVisibleInterval(fetchConversations, 5_000);
 
   // Poll messages every 3s when conversation open
   const fetchMessages = useCallback(async () => {
@@ -117,9 +117,8 @@ export default function InboxPage() {
   useEffect(() => {
     if (!selected) { setMessages([]); return; }
     fetchMessages();
-    const id = setInterval(fetchMessages, 3_000);
-    return () => clearInterval(id);
   }, [selected?.id, fetchMessages]); // eslint-disable-line react-hooks/exhaustive-deps
+  useVisibleInterval(fetchMessages, 3_000);
 
   // Scroll to bottom on new messages
   useEffect(() => {

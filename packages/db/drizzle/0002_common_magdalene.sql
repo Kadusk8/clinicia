@@ -37,7 +37,8 @@ CREATE TABLE "verification" (
 --> statement-breakpoint
 ALTER TABLE "users" ALTER COLUMN "created_at" SET NOT NULL;--> statement-breakpoint
 ALTER TABLE "users" ALTER COLUMN "updated_at" SET NOT NULL;--> statement-breakpoint
-ALTER TABLE "professionals" ALTER COLUMN "active" SET DATA TYPE boolean;--> statement-breakpoint
+ALTER TABLE "professionals" ALTER COLUMN "active" DROP DEFAULT;--> statement-breakpoint
+ALTER TABLE "professionals" ALTER COLUMN "active" SET DATA TYPE boolean USING "active"::text::boolean;--> statement-breakpoint
 ALTER TABLE "professionals" ALTER COLUMN "active" SET DEFAULT true;--> statement-breakpoint
 ALTER TABLE "users" ADD COLUMN "email_verified" boolean DEFAULT false NOT NULL;--> statement-breakpoint
 ALTER TABLE "users" ADD COLUMN "image" text;--> statement-breakpoint

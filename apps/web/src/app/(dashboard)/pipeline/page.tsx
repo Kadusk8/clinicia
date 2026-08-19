@@ -18,13 +18,11 @@ interface Deal {
 }
 
 const STAGES = [
-  { key: 'lead',       label: 'Lead',           color: 'bg-surface-50  border-surface-200' },
-  { key: 'qualified',  label: 'Qualificado',     color: 'bg-blue-50     border-blue-200' },
-  { key: 'scheduled',  label: 'Agendado',        color: 'bg-amber-50    border-amber-200' },
-  { key: 'attended',   label: 'Atendido',        color: 'bg-purple-50   border-purple-200' },
-  { key: 'treatment',  label: 'Em Tratamento',   color: 'bg-primary-50  border-primary-200' },
-  { key: 'won',        label: 'Ganho',           color: 'bg-accent-50   border-accent-200' },
-  { key: 'lost',       label: 'Perdido',         color: 'bg-red-50      border-red-200' },
+  { key: 'lead_novo',       label: 'Lead Novo (Fila de Espera)',       color: 'bg-surface-50  border-surface-200' },
+  { key: 'triagem',         label: 'Triagem Concluída',                color: 'bg-blue-50     border-blue-200' },
+  { key: 'agendado',        label: 'Agendamento Realizado (A Confirmar)', color: 'bg-amber-50    border-amber-200' },
+  { key: 'presenca_confirmada', label: 'Presença Confirmada',          color: 'bg-accent-50   border-accent-200' },
+  { key: 'faltou_remarcar', label: 'Faltou / Remarcar',                color: 'bg-red-50      border-red-200' },
 ];
 
 const APPOINTMENT_STATUS_LABELS: Record<string, string> = {
@@ -43,7 +41,17 @@ interface PatientDetail {
   insurance: string | null;
   notes: string | null;
   tags: string[] | null;
+  contactReason: string | null;
+  firstVisit: boolean | null;
+  urgencyLevel: string | null;
+  complaintSummary: string | null;
 }
+
+const URGENCY_LABELS: Record<string, { label: string; color: string }> = {
+  alta: { label: 'Urgência Alta', color: 'bg-red-100 text-red-700' },
+  media: { label: 'Urgência Média', color: 'bg-amber-100 text-amber-700' },
+  baixa: { label: 'Urgência Baixa', color: 'bg-surface-100 text-surface-600' },
+};
 
 interface PatientHistoryDeal {
   id: string;
@@ -131,10 +139,37 @@ function PatientDetailModal({ patientId, onClose }: { patientId: string; onClose
                 <p className="text-surface-600">📞 {data.patient.phone}</p>
                 {data.patient.email && <p className="text-surface-600">✉️ {data.patient.email}</p>}
                 {data.patient.insurance && <p className="text-surface-600">🏥 {data.patient.insurance}</p>}
+                {data.patient.firstVisit !== null && (
+                  <p className="text-surface-600">
+                    {data.patient.firstVisit ? '🆕 Primeira vez na clínica' : '🔁 Paciente recorrente'}
+                  </p>
+                )}
                 {data.patient.notes && (
                   <p className="text-surface-500 text-xs mt-2 italic">{data.patient.notes}</p>
                 )}
               </div>
+
+              {/* Qualification data */}
+              {(data.patient.contactReason || data.patient.urgencyLevel || data.patient.complaintSummary) && (
+                <div>
+                  <h3 className="text-xs font-semibold text-surface-400 uppercase mb-2">Qualificação</h3>
+                  <div className="space-y-2 text-sm">
+                    {data.patient.contactReason && (
+                      <p className="text-surface-700">
+                        <span className="text-surface-400">Motivo do contato:</span> {data.patient.contactReason}
+                      </p>
+                    )}
+                    {data.patient.urgencyLevel && URGENCY_LABELS[data.patient.urgencyLevel] && (
+                      <span className={`inline-block text-xs px-2 py-1 rounded-full font-medium ${URGENCY_LABELS[data.patient.urgencyLevel]!.color}`}>
+                        {URGENCY_LABELS[data.patient.urgencyLevel]!.label}
+                      </span>
+                    )}
+                    {data.patient.complaintSummary && (
+                      <p className="text-surface-500 text-xs italic">"{data.patient.complaintSummary}"</p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Services sought */}
               {data.servicesSought.length > 0 && (

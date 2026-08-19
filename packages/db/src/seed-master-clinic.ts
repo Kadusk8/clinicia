@@ -125,15 +125,15 @@ function priceRangeText(service: SeedService): string {
 type HourBucket = 'dawn' | 'earlyMorning' | 'business' | 'evening';
 
 function buildHourPlan(total: number): HourBucket[] {
-  const dawnCount = 4; // 00h-05h (madrugada)
-  const earlyCount = 3; // 06h-08h (bem cedo)
-  const eveningCount = 7; // 19h-23h (à noite)
+  const dawnCount = Math.max(1, Math.round(total * 0.08));
+  const earlyCount = Math.max(1, Math.round(total * 0.06));
+  const eveningCount = Math.max(1, Math.round(total * 0.14));
   const businessCount = total - dawnCount - earlyCount - eveningCount;
   const plan: HourBucket[] = [
     ...Array(dawnCount).fill('dawn'),
     ...Array(earlyCount).fill('earlyMorning'),
     ...Array(eveningCount).fill('evening'),
-    ...Array(businessCount).fill('business'),
+    ...Array(Math.max(0, businessCount)).fill('business'),
   ];
   return shuffle(plan);
 }
@@ -174,6 +174,13 @@ const CONVERSATION_STARTERS = [
   'Oi, uma colega de trabalho passou o contato de vocês',
 ];
 
+const NOVO_AGENT_REPLIES = [
+  'Oi! 😊 Tudo bem? Que bom falar com você! Já vou te ajudar, só um instantinho.',
+  'Olá! Seja bem-vindo(a) 🙌 Já te retorno com todas as informações.',
+  'Oi, boa tarde! Claro, posso te ajudar sim. Me dá um minutinho que já te explico tudo.',
+  'Olá! Ótimo te ter por aqui 😊 Deixa eu buscar os detalhes certinhos pra você.',
+];
+
 const PRICE_QUESTIONS = [
   'quanto fica o {service}?',
   'qual o valor do {service} de vocês?',
@@ -192,6 +199,24 @@ function priceReplyTemplates(first: string, service: SeedService, dentistArticle
   ];
 }
 
+const FIRST_VISIT_ASK = [
+  'Só confirmando: você já é paciente da nossa clínica ou seria sua primeira vez por aqui?',
+  'Você já se consultou com a gente antes ou vai ser sua primeira visita?',
+  'Pra eu já preparar seu cadastro certinho: primeira vez aqui na clínica?',
+];
+
+const FIRST_VISIT_REPLY_YES = [
+  'Sim, primeira vez mesmo',
+  'É minha primeira vez aí, sim',
+  'Nunca fui, seria a primeira vez',
+];
+
+const FIRST_VISIT_REPLY_NO = [
+  'Não, já sou paciente de vocês',
+  'Já me consultei aí antes',
+  'Não, já sou cliente antigo',
+];
+
 const OBJECTIONS_PRICE = [
   'Nossa, tá bem salgado pra mim agora 😕 tem como parcelar?',
   'Entendi, mas o valor tá pesado pro meu bolso esse mês...',
@@ -207,16 +232,16 @@ const OBJECTIONS_INSURANCE = [
   'Vocês têm parceria com a Amil? Preciso confirmar antes',
 ];
 
-const OBJECTIONS_FEAR = [
-  'Ai eu tenho muito medo mesmo, será que vou aguentar 😰',
-  'É que a última vez que fui ao dentista foi bem traumático pra mim',
-  'Fico morrendo de medo só de pensar na cadeira do dentista',
-];
-
 const OBJECTIONS_SCHEDULE = [
   'Só posso ir final de semana, vocês abrem sábado?',
   'Minha agenda tá impossível essa semana, tem horário mais pra frente?',
   'Só consigo depois das 18h, vocês têm vaga nesse horário?',
+];
+
+const TRIAGEM_STALL_AGENT = [
+  'Sem problema nenhum, {first}! Fico aqui no WhatsApp mesmo, é só me chamar quando quiser fechar o horário 😊',
+  'Tranquilo, {first}! Vou deixar seus dados aqui guardadinhos, qualquer coisa retomamos por aqui.',
+  'Entendo perfeitamente! Fico no aguardo aqui, sem compromisso nenhum.',
 ];
 
 const FULL_NAME_ASK = [
@@ -261,67 +286,42 @@ const CLOSING_CONFIRMED = [
   'Show, pode contar comigo, vou estar aí',
 ];
 
-const FOLLOWUP_AGENT_REOPEN = [
-  '{first}, tudo bem? 😊 Passando pra saber se você já conseguiu pensar sobre o {service} que conversamos',
-  'Oi {first}! Ainda tá com interesse em fazer o {service}? Fico à disposição pra tirar qualquer dúvida',
-  '{first}, oi! Vi que ficamos de continuar a conversa sobre o {service}. Ainda faz sentido pra você?',
-  'Olá {first}, só um lembrete carinhoso: seguimos com vaga em aberto pra você fazer o {service} quando quiser 🙂',
+const REMINDER_AGENT_ASK = [
+  'Oi {first}! Passando aqui pra confirmar sua consulta amanhã às {time} com {dentist} para {service}. Você confirma presença? 😊',
+  '{first}, tudo bem? Lembrete rapidinho: amanhã às {time} é sua consulta com {dentist}. Confirma que vem?',
+  'Oi {first}! Sua consulta com {dentist} tá marcada pra amanhã, {time}. Posso confirmar sua presença?',
 ];
 
-const FOLLOWUP_PATIENT_STALL = [
-  'Ainda tô pensando, é que os valores pesam um pouco',
-  'Quero fazer sim, só preciso organizar as contas esse mês',
-  'Vou ver com calma e te chamo, pode ser?',
-  'Preciso conversar em casa antes, mas não esqueci de vocês',
-  'Ainda não decidi, mas {obg} por lembrar',
+const REMINDER_PATIENT_YES = [
+  'Sim, confirmado! Vou estar aí',
+  'Confirmado, até amanhã!',
+  'Sim, vou comparecer sim',
+  'Pode confirmar, tô indo',
 ];
 
-const FOLLOWUP_AGENT_CLOSE = [
-  'Sem pressa nenhuma, {first}! Fico por aqui aguardando, é só me chamar quando decidir 😊',
-  'Tranquilo! Vou deixar sua vaga guardadinha por uns dias. Qualquer coisa é só mandar mensagem por aqui mesmo',
-  'Entendo perfeitamente. Assim que puder, me chama aqui no WhatsApp que a gente encaixa você',
+const REMINDER_AGENT_THANKS = [
+  'Perfeito, {first}! Te espero aqui então 😊',
+  'Ótimo, obrigada por confirmar! Até amanhã',
+  'Show, anotado aqui. Nos vemos amanhã!',
 ];
 
-const LOST_OBJECTION_FINAL = [
-  'Vou ter que deixar pra outra hora, não tá dando certo agora financeiramente 😕',
-  'Infelizmente não vai dar pra fechar agora, mas {obg} pela atenção',
-  'Vou procurar um lugar que feche com meu convênio mesmo, mas {obg}',
-  'Vou pensar mais um pouco, mas acho que não vai rolar por agora',
+const NOSHOW_AGENT_REACHOUT = [
+  'Oi {first}, tudo bem? Sentimos sua falta na consulta de {day} com {dentist} 😕 Quer remarcar para outro dia?',
+  '{first}, notamos que você não conseguiu vir na consulta marcada. Ficou tudo bem? Posso te encaixar em outro horário.',
+  'Oi {first}! Vimos que faltou na consulta com {dentist}. Sem problema, quer que eu já veja um novo horário pra você?',
 ];
 
-const LOST_AGENT_REPLY = [
-  '{first}, sem problema nenhum! Ficamos à disposição aqui no WhatsApp sempre que precisar 😊',
-  'Entendo, {first}! Qualquer mudança de ideia, é só chamar por aqui. Um abraço!',
-  'Tranquilo! A porta fica sempre aberta pra você. Obrigada por nos procurar 🙂',
+const NOSHOW_PATIENT_REPLY = [
+  'Desculpa, surgiu um imprevisto de última hora! Quero remarcar sim',
+  'Foi mal, esqueci completamente 😔 Pode ser semana que vem?',
+  'Tive um imprevisto no trabalho, mil desculpas. Consigo remarcar?',
+  'Passei mal naquele dia, não consegui avisar a tempo. Vamos remarcar?',
 ];
 
-const URGENCY_MARKERS = [
-  'Gente, desculpa incomodar a essa hora, mas acordei com uma dor terrível de dente 😭',
-  'Gente, socorro, meu filho tá chorando de dor de dente, oq eu faço?',
-  'Oi, será que tem como encaixar rápido? Não aguento mais essa dor',
-  'Oi, o dente que fizeram canal aqui voltou a doer forte, virou um desespero',
-  'Urgência: caiu um pedaço do meu dente agora e tá sangrando um pouco',
-  'Não tô aguentando essa dor, tem alguém que possa me atender ainda hoje?',
-  'Meu rosto inchou do lado do dente que tava doendo, isso é grave?',
-];
-
-const URGENCY_AGENT_REPLY = [
-  '{first}, calma, já vou te ajudar! 😟 Consegue vir até a clínica agora ou daqui a pouco?',
-  'Poxa {first}, sinto muito! Vou verificar um horário de urgência agora mesmo, aguenta aí um minutinho',
-  '{first}, isso pode ser mais sério, melhor não esperar. Consigo te encaixar em breve, você consegue vir?',
-];
-
-const URGENCY_PATIENT_CONFIRM = [
-  'Consigo sim, já tô me arrumando pra ir',
-  'Consigo, só me fala o horário que eu já saio',
-  'Sim, prefiro ir logo, essa dor tá insuportável',
-  'Vou aí assim que puder, {obg} por me atender rápido',
-];
-
-const URGENCY_AGENT_CONFIRM = [
-  '{first}, já te encaixei com {dentist} daqui a pouco. Vem com calma, a gente já vai te acolher aqui ❤️',
-  'Prontinho! {dentist} vai te atender assim que chegar. Qualquer coisa me chama por aqui mesmo',
-  'Combinado, {first}! Te espero aqui, {dentist} já está {avisado}. Vem direto pra recepção',
+const NOSHOW_AGENT_CLOSE = [
+  'Sem problema, {first}! Vou deixar em aberto aqui, é só me chamar quando quiser escolher um novo dia 😊',
+  'Tranquilo! Fico no aguardo por aqui pra remarcarmos assim que puder.',
+  'Entendido! Quando puder, me chama por aqui que já vejo um novo horário com {dentist}.',
 ];
 
 const WEEKDAYS = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
@@ -335,20 +335,58 @@ function fill(template: string, vars: Record<string, string>): string {
 }
 
 // =====================================================
+// QUALIFICATION DATA (mirrors what the WhatsApp AI agent
+// would extract and store as structured CRM fields)
+// =====================================================
+
+const COMPLAINT_PHRASES: Record<string, string[]> = {
+  ortho: ['desconforto com o alinhamento dos dentes', 'sensação de dentes tortos incomodando na mordida', 'vontade de melhorar o sorriso antes de um evento'],
+  implant: ['dor no local de um dente que caiu', 'dificuldade para mastigar de um lado', 'desconforto com uma prótese antiga'],
+  general: ['dor no dente do siso há alguns dias', 'sensibilidade ao comer coisas geladas', 'um dente sensível há algumas semanas', 'desconforto leve ao mastigar'],
+};
+
+function complaintCategoryFor(dentist: SeedDentist): keyof typeof COMPLAINT_PHRASES {
+  if (dentist.speciality.toLowerCase().includes('ortodontia')) return 'ortho';
+  if (dentist.speciality.toLowerCase().includes('implant')) return 'implant';
+  return 'general';
+}
+
+function buildComplaintSummary(dentist: SeedDentist): string {
+  const pool = COMPLAINT_PHRASES[complaintCategoryFor(dentist)]!;
+  const phrase = pick(pool);
+  const days = randomInt(1, 10);
+  return `Paciente relatou ${phrase} há ${days} dia${days > 1 ? 's' : ''}.`;
+}
+
+function urgencyFor(service: SeedService): 'alta' | 'media' | 'baixa' {
+  const urgentServices = ['Extração de Siso', 'Tratamento de Canal', 'Enxerto Ósseo'];
+  if (urgentServices.includes(service.name)) return randomEl(['alta', 'alta', 'media'] as const);
+  const roll = Math.random();
+  if (roll < 0.12) return 'alta';
+  if (roll < 0.45) return 'media';
+  return 'baixa';
+}
+
+// =====================================================
 // CONVERSATION GENERATION
 // =====================================================
+
+type FunnelCategory = 'lead_novo' | 'triagem' | 'agendado' | 'presenca_confirmada' | 'faltou_remarcar';
 
 interface GeneratedConversation {
   messages: Array<{ role: string; content: string; createdAt: Date }>;
   lastMessageAt: Date;
-  dealStage: string;
+  dealStage: FunnelCategory;
   service: SeedService;
+  qualified: boolean; // whether triage data (name/first-visit/complaint) was actually collected
+  appointmentDate: Date | null;
+  appointmentStatus: 'scheduled' | 'confirmed' | 'no_show' | null;
 }
 
 function generateRealisticConversation(
   patientName: PatientName,
   dentist: SeedDentist,
-  category: 'scheduled' | 'followup' | 'lost' | 'urgent',
+  category: FunnelCategory,
   hourBucket: HourBucket,
 ): GeneratedConversation {
   const service = randomEl(dentist.services);
@@ -356,7 +394,6 @@ function generateRealisticConversation(
   const dentistFemale = dentist.name.startsWith('Dra.');
   const dentistArticle = dentistFemale ? 'a' : 'o';
   const dentistTitle = dentistFemale ? 'Dra.' : 'Dr.';
-  const dentistAvisado = dentistFemale ? 'avisada' : 'avisado';
 
   const currentTime = new Date();
   currentTime.setDate(currentTime.getDate() - randomInt(1, 15));
@@ -367,44 +404,49 @@ function generateRealisticConversation(
     messages.push({ role, content, createdAt: new Date(currentTime) });
   }
 
-  if (category === 'urgent') {
-    push('patient', pick(URGENCY_MARKERS));
-    push('agent', fill(pick(URGENCY_AGENT_REPLY), { first: patientName.first }), randomInt(1, 4));
-    push('patient', fill(pick(URGENCY_PATIENT_CONFIRM), { obg: patientName.obg }), randomInt(2, 8));
-    push('agent', fill(pick(URGENCY_AGENT_CONFIRM), { first: patientName.first, dentist: dentist.name, avisado: dentistAvisado }), randomInt(2, 6));
-    push('patient', `Muito ${patientName.obg}, já tô indo!`, randomInt(1, 5));
-    return { messages, lastMessageAt: new Date(currentTime), dealStage: 'attended', service };
+  // Opening (shared by every category)
+  push('patient', pick(CONVERSATION_STARTERS));
+
+  if (category === 'lead_novo') {
+    push('agent', pick(NOVO_AGENT_REPLIES), randomInt(1, 6));
+    return {
+      messages,
+      lastMessageAt: new Date(currentTime),
+      dealStage: 'lead_novo',
+      service,
+      qualified: false,
+      appointmentDate: null,
+      appointmentStatus: null,
+    };
   }
 
-  // Opening
-  push('patient', pick(CONVERSATION_STARTERS));
   push('agent', `Oi, ${patientName.first}! 😊 Tudo bem? Que bom que você chamou a gente. Aqui ${dentistArticle} ${dentist.name} cuida de ${dentist.speciality.toLowerCase()}. Como posso te ajudar hoje?`, randomInt(3, 20));
 
   const priceQuestion = fill(pick(PRICE_QUESTIONS), { service: service.name.toLowerCase() });
   push('patient', priceQuestion.charAt(0).toUpperCase() + priceQuestion.slice(1), randomInt(2, 15));
   push('agent', pick(priceReplyTemplates(patientName.first, service, dentistArticle, dentistTitle)), randomInt(4, 25));
 
-  if (category === 'lost') {
-    const objectionPool = [...OBJECTIONS_PRICE, ...OBJECTIONS_INSURANCE, ...OBJECTIONS_FEAR];
+  // Triage: first-visit question, always asked once we're past "lead novo"
+  const isFirstVisit = Math.random() < 0.6;
+  push('agent', pick(FIRST_VISIT_ASK), randomInt(2, 12));
+  push('patient', pick(isFirstVisit ? FIRST_VISIT_REPLY_YES : FIRST_VISIT_REPLY_NO), randomInt(1, 8));
+
+  if (category === 'triagem') {
+    const objectionPool = [...OBJECTIONS_PRICE, ...OBJECTIONS_INSURANCE, ...OBJECTIONS_SCHEDULE];
     push('patient', pick(objectionPool), randomInt(3, 30));
-    push('agent', `Entendo, ${patientName.first}. Se precisar de algo é só chamar, tá aqui na clínica ou aqui pelo WhatsApp mesmo 🙂`, randomInt(3, 15));
-    push('patient', fill(pick(LOST_OBJECTION_FINAL), { obg: patientName.obg }), randomInt(10, 120));
-    push('agent', fill(pick(LOST_AGENT_REPLY), { first: patientName.first }), randomInt(2, 10));
-    return { messages, lastMessageAt: new Date(currentTime), dealStage: 'lost', service };
+    push('agent', fill(pick(TRIAGEM_STALL_AGENT), { first: patientName.first }), randomInt(2, 10));
+    return {
+      messages,
+      lastMessageAt: new Date(currentTime),
+      dealStage: 'triagem',
+      service,
+      qualified: true,
+      appointmentDate: null,
+      appointmentStatus: null,
+    };
   }
 
-  if (category === 'followup') {
-    push('patient', pick([...OBJECTIONS_PRICE, ...OBJECTIONS_SCHEDULE]), randomInt(3, 20));
-    push('agent', `Sem problema, ${patientName.first}! Fico no aguardo aqui pelo WhatsApp mesmo, sem compromisso nenhum 😊`, randomInt(2, 10));
-    // Time gap simulating days passing before follow-up
-    currentTime.setDate(currentTime.getDate() + randomInt(2, 6));
-    push('agent', fill(pick(FOLLOWUP_AGENT_REOPEN), { first: patientName.first, service: service.name.toLowerCase() }), 0);
-    push('patient', fill(pick(FOLLOWUP_PATIENT_STALL), { obg: patientName.obg }), randomInt(15, 90));
-    push('agent', fill(pick(FOLLOWUP_AGENT_CLOSE), { first: patientName.first }), randomInt(2, 10));
-    return { messages, lastMessageAt: new Date(currentTime), dealStage: 'qualified', service };
-  }
-
-  // scheduled
+  // agendado / presenca_confirmada / faltou_remarcar: booking happens
   push('patient', pick(OBJECTIONS_SCHEDULE.concat(['Certo, faz sentido! Vamos marcar então'])), randomInt(3, 20));
 
   const day1 = pick(WEEKDAYS);
@@ -426,7 +468,58 @@ function generateRealisticConversation(
   }), randomInt(2, 10));
   push('patient', fill(pick(CLOSING_CONFIRMED), { obg: patientName.obg }), randomInt(1, 8));
 
-  return { messages, lastMessageAt: new Date(currentTime), dealStage: 'scheduled', service };
+  const appointmentDate = new Date();
+  appointmentDate.setDate(appointmentDate.getDate() + randomInt(2, 12));
+  appointmentDate.setHours(randomInt(8, 18), randomEl([0, 30]), 0, 0);
+
+  if (category === 'agendado') {
+    return {
+      messages,
+      lastMessageAt: new Date(currentTime),
+      dealStage: 'agendado',
+      service,
+      qualified: true,
+      appointmentDate,
+      appointmentStatus: 'scheduled',
+    };
+  }
+
+  if (category === 'presenca_confirmada') {
+    // Time gap: the day before the appointment, AI sends a reminder
+    currentTime.setDate(currentTime.getDate() + randomInt(1, 5));
+    push('agent', fill(pick(REMINDER_AGENT_ASK), { first: patientName.first, time: confirmTime, dentist: dentist.name, service: service.name }), 0);
+    push('patient', pick(REMINDER_PATIENT_YES), randomInt(3, 40));
+    push('agent', fill(pick(REMINDER_AGENT_THANKS), { first: patientName.first }), randomInt(1, 6));
+    return {
+      messages,
+      lastMessageAt: new Date(currentTime),
+      dealStage: 'presenca_confirmada',
+      service,
+      qualified: true,
+      appointmentDate,
+      appointmentStatus: 'confirmed',
+    };
+  }
+
+  // faltou_remarcar: appointment date already passed, patient didn't show
+  const pastAppointmentDate = new Date();
+  pastAppointmentDate.setDate(pastAppointmentDate.getDate() - randomInt(1, 5));
+  pastAppointmentDate.setHours(randomInt(8, 18), randomEl([0, 30]), 0, 0);
+
+  currentTime.setDate(currentTime.getDate() + randomInt(1, 3));
+  push('agent', fill(pick(NOSHOW_AGENT_REACHOUT), { first: patientName.first, day: day1, dentist: dentist.name }), 0);
+  push('patient', pick(NOSHOW_PATIENT_REPLY), randomInt(5, 60));
+  push('agent', fill(pick(NOSHOW_AGENT_CLOSE), { first: patientName.first, dentist: dentist.name }), randomInt(2, 10));
+
+  return {
+    messages,
+    lastMessageAt: new Date(currentTime),
+    dealStage: 'faltou_remarcar',
+    service,
+    qualified: true,
+    appointmentDate: pastAppointmentDate,
+    appointmentStatus: 'no_show',
+  };
 }
 
 // =====================================================
@@ -435,19 +528,22 @@ function generateRealisticConversation(
 
 async function seedMasterClinic() {
   try {
-    const [clinic] = await db.select().from(schema.clinics).where(eq(schema.clinics.name, 'Clinica Master')).limit(1);
+    let [clinic] = await db.select().from(schema.clinics).where(eq(schema.clinics.slug, 'master-clinic')).limit(1);
+    if (!clinic) {
+      [clinic] = await db.select().from(schema.clinics).where(eq(schema.clinics.name, 'Clinica Master')).limit(1);
+    }
 
     if (!clinic) {
-      console.error('❌ Clínica Master não encontrada. Crie primeiro.');
+      console.error('❌ Clínica de teste não encontrada (slug "master-clinic"). Crie primeiro.');
       process.exit(1);
     }
 
     const ctx: SeedContext = { clinicId: clinic.id, dentists: [] };
 
-    console.log('🦷 Iniciando seed de dados realistas para Clínica Master...\n');
+    console.log(`🦷 Iniciando seed de dados realistas para "${clinic.name}"...\n`);
 
     // ========== 0. Cleanup previous seed (scoped to this clinic only) ==========
-    console.log('🧹 Limpando dados anteriores da Clínica Master...');
+    console.log('🧹 Limpando dados anteriores...');
 
     const existingProfessionals = await db
       .select({ id: schema.professionals.id })
@@ -552,24 +648,27 @@ async function seedMasterClinic() {
     }
     console.log(`✅ ${ctx.dentists.length} dentistas criados com ${ctx.dentists.reduce((n, d) => n + d.services.length, 0)} serviços no catálogo\n`);
 
-    // ========== 2. Create 50 Leads with Realistic Conversations ==========
-    console.log('👥 Criando 50 leads com histórico realista...');
+    // ========== 2. Create leads distributed across the 5-stage funnel ==========
+    console.log('👥 Criando leads com histórico realista distribuídos pelo funil...');
 
     const leadCategories = [
-      ...Array(20).fill('scheduled'),
-      ...Array(15).fill('followup'),
-      ...Array(10).fill('lost'),
-      ...Array(5).fill('urgent'),
-    ] as Array<'scheduled' | 'followup' | 'lost' | 'urgent'>;
+      ...Array(8).fill('lead_novo'),
+      ...Array(10).fill('triagem'),
+      ...Array(12).fill('agendado'),
+      ...Array(6).fill('presenca_confirmada'),
+      ...Array(4).fill('faltou_remarcar'),
+    ] as FunnelCategory[];
 
     const hourPlan = buildHourPlan(leadCategories.length);
 
     for (let i = 0; i < leadCategories.length; i++) {
       const patientName = generateName();
       const phone = generatePhone();
-      const category = leadCategories[i] as (typeof leadCategories)[number];
+      const category = leadCategories[i] as FunnelCategory;
       const dentist = randomEl(ctx.dentists);
       const hourBucket = hourPlan[i] as HourBucket;
+
+      const convData = generateRealisticConversation(patientName, dentist, category, hourBucket);
 
       const patient = firstOrThrow(
         await db
@@ -581,11 +680,13 @@ async function seedMasterClinic() {
             insurance: randomEl([null, null, 'Particular', 'Bradesco Saúde', 'Unimed', 'Amil']),
             tags: [category],
             lgpdConsent: true,
+            contactReason: convData.qualified ? convData.service.name : null,
+            firstVisit: convData.qualified ? Math.random() < 0.6 : null,
+            urgencyLevel: convData.qualified ? urgencyFor(convData.service) : null,
+            complaintSummary: convData.qualified ? buildComplaintSummary(dentist) : null,
           })
           .returning(),
       );
-
-      const convData = generateRealisticConversation(patientName, dentist, category, hourBucket);
 
       const negotiationFactor = randomEl([0.9, 0.95, 1, 1, 1.05]);
       const dealValueCents = Math.round(convData.service.priceCents * negotiationFactor);
@@ -606,7 +707,7 @@ async function seedMasterClinic() {
             clinicId: ctx.clinicId,
             patientId: patient.id,
             externalId: phone,
-            status: category === 'lost' ? 'closed' : 'agent_active',
+            status: category === 'lead_novo' ? 'agent_active' : 'agent_active',
             lastMessageAt: convData.lastMessageAt,
           })
           .returning(),
@@ -622,19 +723,15 @@ async function seedMasterClinic() {
         });
       }
 
-      if (convData.dealStage === 'scheduled') {
-        const appointmentDate = new Date();
-        appointmentDate.setDate(appointmentDate.getDate() + randomInt(1, 10));
-        appointmentDate.setHours(randomInt(8, 18), randomEl([0, 30]), 0, 0);
-
+      if (convData.appointmentDate && convData.appointmentStatus) {
         await db.insert(schema.appointments).values({
           clinicId: ctx.clinicId,
           patientId: patient.id,
           professionalId: dentist.id,
           serviceId: convData.service.id,
-          startsAt: appointmentDate,
-          endsAt: new Date(appointmentDate.getTime() + 60 * 60000),
-          status: 'scheduled',
+          startsAt: convData.appointmentDate,
+          endsAt: new Date(convData.appointmentDate.getTime() + 60 * 60000),
+          status: convData.appointmentStatus,
         });
       }
 
@@ -644,10 +741,10 @@ async function seedMasterClinic() {
 
     console.log('🎉 Seed concluído com sucesso!');
     console.log(`📊 Resumo:`);
-    console.log(`  • Clínica: Clinica Master`);
+    console.log(`  • Clínica: ${clinic.name}`);
     console.log(`  • Dentistas: ${ctx.dentists.length}`);
     console.log(`  • Leads: ${leadCategories.length}`);
-    console.log(`  • Distribuição: 20 agendadas, 15 em follow-up, 10 perdidas, 5 urgências`);
+    console.log(`  • Funil: 8 Lead Novo, 10 Triagem Concluída, 12 Agendamento Realizado, 6 Presença Confirmada, 4 Faltou/Remarcar`);
 
     process.exit(0);
   } catch (err) {

@@ -25,6 +25,10 @@ export const patients = pgTable(
     insurance: varchar('insurance', { length: 100 }),
     notes: text('notes'),
     tags: text('tags').array(),
+    contactReason: varchar('contact_reason', { length: 255 }),
+    firstVisit: boolean('first_visit'),
+    urgencyLevel: varchar('urgency_level', { length: 10 }), // alta | media | baixa
+    complaintSummary: text('complaint_summary'),
     lgpdConsent: boolean('lgpd_consent').default(false),
     lgpdConsentAt: timestamp('lgpd_consent_at'),
     createdAt: timestamp('created_at').defaultNow(),

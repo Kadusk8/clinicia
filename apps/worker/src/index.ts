@@ -397,7 +397,7 @@ async function scanDueFollowUps() {
   }
 }
 
-setInterval(scanDueFollowUps, 60_000); // Every 60 seconds
+setInterval(scanDueFollowUps, 5 * 60_000); // Every 5 minutes
 scanDueFollowUps(); // Run immediately on start
 
 // ==========================================

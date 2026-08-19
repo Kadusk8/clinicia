@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { useVisibleInterval } from '@/lib/use-visible-interval';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: '📊' },
@@ -21,18 +22,18 @@ export function Sidebar() {
   const pathname = usePathname();
   const [totalUnread, setTotalUnread] = useState(0);
 
-  useEffect(() => {
-    const fetchUnread = async () => {
-      try {
-        const res = await api.getConversations({ pageSize: '100' }) as { data: Array<{ unreadCount: number | null }> };
-        const total = res.data?.reduce((n, c) => n + (c.unreadCount ?? 0), 0) ?? 0;
-        setTotalUnread(total);
-      } catch { /* ignore */ }
-    };
-    fetchUnread();
-    const id = setInterval(fetchUnread, 10_000);
-    return () => clearInterval(id);
+  const fetchUnread = useCallback(async () => {
+    try {
+      const res = await api.getConversations({ pageSize: '100' }) as { data: Array<{ unreadCount: number | null }> };
+      const total = res.data?.reduce((n, c) => n + (c.unreadCount ?? 0), 0) ?? 0;
+      setTotalUnread(total);
+    } catch { /* ignore */ }
   }, []);
+
+  useEffect(() => {
+    fetchUnread();
+  }, [fetchUnread]);
+  useVisibleInterval(fetchUnread, 10_000);
 
   return (
     <aside className="fixed left-0 top-0 bottom-0 w-64 bg-white border-r border-surface-200 flex flex-col z-40">

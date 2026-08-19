@@ -213,4 +213,4 @@ CREATE UNIQUE INDEX "patients_clinic_phone_idx" ON "patients" USING btree ("clin
 CREATE INDEX "appointments_clinic_starts_idx" ON "appointments" USING btree ("clinic_id","starts_at");--> statement-breakpoint
 CREATE INDEX "appointments_prof_starts_idx" ON "appointments" USING btree ("professional_id","starts_at");--> statement-breakpoint
 CREATE INDEX "follow_ups_scheduled_idx" ON "follow_ups" USING btree ("status","scheduled_for");--> statement-breakpoint
-CREATE INDEX "kb_chunks_embedding_idx" ON "kb_chunks" USING hnsw ("embedding");
+CREATE INDEX "kb_chunks_embedding_idx" ON "kb_chunks" USING hnsw ("embedding" vector_cosine_ops);
