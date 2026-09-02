@@ -19,10 +19,12 @@ export const conversations = pgTable('conversations', {
   patientId: uuid('patient_id').references(() => patients.id),
   channel: varchar('channel', { length: 30 }).default('whatsapp'),
   externalId: varchar('external_id', { length: 100 }), // remoteJid from Evolution
-  status: varchar('status', { length: 30 }).default('agent_active'),
-  // agent_active | human_active | closed
+  status: varchar('status', { length: 30 }).default('human_active'),
+  // agent_active | human_active | closed — conversas novas nascem human_active;
+  // só viram agent_active via activation_triggers (ver webhooks.service.ts)
   assignedUserId: uuid('assigned_user_id').references(() => users.id),
   summary: text('summary'), // LLM-generated conversation summary
+  categoryKey: text('category_key'), // resolved agent_categories.key (clinics.agent_mode = 'multi')
   unreadCount: integer('unread_count').default(0),
   lastMessageAt: timestamp('last_message_at'),
   createdAt: timestamp('created_at').defaultNow(),

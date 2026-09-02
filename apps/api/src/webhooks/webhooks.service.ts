@@ -107,9 +107,30 @@ export class WebhooksService {
       })
       .where(eq(schema.conversations.id, conversationId));
 
-    // 4. Enqueue for AI processing (only if agent is in control)
-    if (conversationStatus !== 'agent_active') {
-      this.logger.log(`Conversation ${conversationId} is ${conversationStatus}, skipping AI`);
+    // 4. Gate: conversas nascem human_active. Só viram agent_active quando a
+    // mensagem bate com um gatilho de ativação da clínica — fail-safe pra
+    // clínicas com base de pacientes antiga que não sabem que a IA existe.
+    let effectiveStatus = conversationStatus;
+    let triggeredCategoryKey: string | null = null;
+    if (effectiveStatus !== 'agent_active') {
+      const matchedTrigger = await this.matchActivationTrigger(clinicId, content);
+      if (matchedTrigger) {
+        triggeredCategoryKey = matchedTrigger.categoryKey;
+        await db
+          .update(schema.conversations)
+          .set({
+            status: 'agent_active',
+            ...(triggeredCategoryKey ? { categoryKey: triggeredCategoryKey } : {}),
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.conversations.id, conversationId));
+        effectiveStatus = 'agent_active';
+      }
+    }
+
+    // 5. Enqueue for AI processing (only if agent is in control)
+    if (effectiveStatus !== 'agent_active') {
+      this.logger.log(`Conversation ${conversationId} is ${effectiveStatus}, skipping AI`);
       return { processed: true, clinicId, phone, aiSkipped: true };
     }
 
@@ -128,7 +149,7 @@ export class WebhooksService {
 
     await this.messageQueue.add(
       'process',
-      { conversationId, clinicId },
+      { conversationId, clinicId, triggeredCategoryKey },
       {
         jobId,
         delay: 8_000,
@@ -184,7 +205,7 @@ export class WebhooksService {
     if (existing[0]) {
       return {
         conversationId: existing[0].id,
-        conversationStatus: existing[0].status ?? 'agent_active',
+        conversationStatus: existing[0].status ?? 'human_active',
       };
     }
 
@@ -195,7 +216,7 @@ export class WebhooksService {
         patientId,
         externalId: phone,
         channel: 'whatsapp',
-        status: 'agent_active',
+        status: 'human_active',
         lastMessageAt: new Date(),
       })
       .returning({ id: schema.conversations.id, status: schema.conversations.status });
@@ -203,7 +224,29 @@ export class WebhooksService {
     const inserted = rows[0]!;
     return {
       conversationId: inserted.id,
-      conversationStatus: inserted.status ?? 'agent_active',
+      conversationStatus: inserted.status ?? 'human_active',
     };
+  }
+
+  /**
+   * Compara o texto recebido (case-insensitive, substring) contra os gatilhos
+   * ativos da clínica. Retorna o primeiro que bater, ou null se nenhum bater.
+   */
+  private async matchActivationTrigger(
+    clinicId: string,
+    content: string,
+  ): Promise<schema.ActivationTrigger | null> {
+    const triggers = await db
+      .select()
+      .from(schema.activationTriggers)
+      .where(
+        and(
+          eq(schema.activationTriggers.clinicId, clinicId),
+          eq(schema.activationTriggers.active, true),
+        ),
+      );
+
+    const normalizedContent = content.toLowerCase();
+    return triggers.find((t) => normalizedContent.includes(t.phrase.toLowerCase())) ?? null;
   }
 }

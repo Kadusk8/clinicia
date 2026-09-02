@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-const tabs = ['Dados', 'Agente IA', 'WhatsApp', 'Estatísticas'];
+const tabs = ['Dados', 'Agente IA', 'WhatsApp', 'Ativação', 'Categorias', 'Estatísticas'];
 
 interface ClinicData {
   id: string;
@@ -23,6 +23,7 @@ interface ClinicData {
   agentConfig: Record<string, string>;
   agentSystemPrompt: string;
   agentKnowledgeBase: string;
+  agentMode: 'single' | 'multi';
   users?: Array<{ id: string; name: string; email: string; role: string }>;
 }
 
@@ -31,6 +32,22 @@ interface Stats {
   appointments: number;
   conversations: number;
   deals: number;
+}
+
+interface ActivationTrigger {
+  id: string;
+  phrase: string;
+  categoryKey: string | null;
+  active: boolean;
+}
+
+interface AgentCategory {
+  id: string;
+  key: string;
+  label: string;
+  systemPrompt: string | null;
+  knowledgeBase: string | null;
+  active: boolean;
 }
 
 export default function EditClinicPage() {
@@ -47,6 +64,14 @@ export default function EditClinicPage() {
   const [agentForm, setAgentForm] = useState({ assistantName: '', tone: '', greeting: '', agentSystemPrompt: '', agentKnowledgeBase: '', provider: 'anthropic', model: 'claude-sonnet-4-5-20250514', apiKey: '' });
   // Tab 2 — WhatsApp
   const [waForm, setWaForm] = useState({ whatsappInstanceName: '', evolutionApiUrl: '', evolutionApiKey: '' });
+  // Tab 3 — Ativação
+  const [triggers, setTriggers] = useState<ActivationTrigger[]>([]);
+  const [newPhrase, setNewPhrase] = useState('');
+  const [newTriggerCategory, setNewTriggerCategory] = useState('');
+  // Tab 4 — Categorias (agent_mode = 'multi')
+  const [agentMode, setAgentMode] = useState<'single' | 'multi'>('single');
+  const [categories, setCategories] = useState<AgentCategory[]>([]);
+  const [newCategory, setNewCategory] = useState({ key: '', label: '' });
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('admin_token') : null;
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
@@ -61,9 +86,88 @@ export default function EditClinicPage() {
         const cfg = c.agentConfig ?? {};
         setAgentForm({ assistantName: cfg.assistantName ?? '', tone: cfg.tone ?? '', greeting: cfg.greeting ?? '', agentSystemPrompt: c.agentSystemPrompt ?? '', agentKnowledgeBase: c.agentKnowledgeBase ?? '', provider: cfg.provider ?? 'anthropic', model: cfg.model ?? 'claude-sonnet-4-5-20250514', apiKey: cfg.apiKey ?? '' });
         setWaForm({ whatsappInstanceName: c.whatsappInstanceName ?? '', evolutionApiUrl: c.evolutionApiUrl ?? '', evolutionApiKey: c.evolutionApiKey ?? '' });
+        setAgentMode(c.agentMode ?? 'single');
       });
     fetch(`${API}/api/admin/clinics/${id}/stats`, { headers }).then((r) => r.json()).then(setStats);
+    loadTriggers();
+    loadCategories();
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loadTriggers = async () => {
+    const res = await fetch(`${API}/api/admin/clinics/${id}/activation-triggers`, { headers });
+    setTriggers(await res.json());
+  };
+
+  const loadCategories = async () => {
+    const res = await fetch(`${API}/api/admin/clinics/${id}/agent-categories`, { headers });
+    setCategories(await res.json());
+  };
+
+  const addTrigger = async () => {
+    if (!newPhrase.trim()) return;
+    await fetch(`${API}/api/admin/clinics/${id}/activation-triggers`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ phrase: newPhrase.trim(), categoryKey: newTriggerCategory || undefined }),
+    });
+    setNewPhrase('');
+    setNewTriggerCategory('');
+    loadTriggers();
+  };
+
+  const toggleTrigger = async (trigger: ActivationTrigger) => {
+    await fetch(`${API}/api/admin/clinics/${id}/activation-triggers/${trigger.id}`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify({ active: !trigger.active }),
+    });
+    loadTriggers();
+  };
+
+  const deleteTrigger = async (triggerId: string) => {
+    await fetch(`${API}/api/admin/clinics/${id}/activation-triggers/${triggerId}`, {
+      method: 'DELETE',
+      headers,
+    });
+    loadTriggers();
+  };
+
+  const saveAgentMode = async (mode: 'single' | 'multi') => {
+    setAgentMode(mode);
+    await fetch(`${API}/api/admin/clinics/${id}/agent-mode`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify({ agentMode: mode }),
+    });
+  };
+
+  const addCategory = async () => {
+    if (!newCategory.key.trim() || !newCategory.label.trim()) return;
+    await fetch(`${API}/api/admin/clinics/${id}/agent-categories`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ key: newCategory.key.trim(), label: newCategory.label.trim() }),
+    });
+    setNewCategory({ key: '', label: '' });
+    loadCategories();
+  };
+
+  const updateCategory = async (categoryId: string, data: Partial<AgentCategory>) => {
+    await fetch(`${API}/api/admin/clinics/${id}/agent-categories/${categoryId}`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(data),
+    });
+    loadCategories();
+  };
+
+  const deleteCategory = async (categoryId: string) => {
+    await fetch(`${API}/api/admin/clinics/${id}/agent-categories/${categoryId}`, {
+      method: 'DELETE',
+      headers,
+    });
+    loadCategories();
+  };
 
   const save = async () => {
     setSaving(true);
@@ -187,6 +291,22 @@ export default function EditClinicPage() {
         {tab === 1 && (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-white mb-4">Agente IA</h2>
+
+            <div>
+              <label className="block text-sm font-medium text-surface-300 mb-1">Modo do agente</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button type="button" onClick={() => saveAgentMode('single')} className={`p-3 rounded-xl border text-left ${agentMode === 'single' ? 'border-orange-500 bg-orange-500/10' : 'border-surface-700 bg-surface-800'}`}>
+                  <p className="text-white text-sm font-medium">1 agente</p>
+                </button>
+                <button type="button" onClick={() => saveAgentMode('multi')} className={`p-3 rounded-xl border text-left ${agentMode === 'multi' ? 'border-orange-500 bg-orange-500/10' : 'border-surface-700 bg-surface-800'}`}>
+                  <p className="text-white text-sm font-medium">Múltiplos agentes</p>
+                </button>
+              </div>
+              {agentMode === 'multi' && (
+                <p className="text-xs text-surface-500 mt-2">Prompt e base de conhecimento agora vêm da aba "Categorias".</p>
+              )}
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-surface-300 mb-1">Nome da assistente</label>
               <input value={agentForm.assistantName} onChange={(e) => setAgentForm((p) => ({ ...p, assistantName: e.target.value }))} className={inputCls} placeholder="Ana" />
@@ -204,14 +324,18 @@ export default function EditClinicPage() {
               <label className="block text-sm font-medium text-surface-300 mb-1">Boas-vindas</label>
               <textarea value={agentForm.greeting} onChange={(e) => setAgentForm((p) => ({ ...p, greeting: e.target.value }))} className={`${inputCls} min-h-[80px]`} />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-surface-300 mb-1">System prompt</label>
-              <textarea value={agentForm.agentSystemPrompt} onChange={(e) => setAgentForm((p) => ({ ...p, agentSystemPrompt: e.target.value }))} className={`${inputCls} min-h-[120px]`} />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-surface-300 mb-1">Base de conhecimento</label>
-              <textarea value={agentForm.agentKnowledgeBase} onChange={(e) => setAgentForm((p) => ({ ...p, agentKnowledgeBase: e.target.value }))} className={`${inputCls} min-h-[120px]`} />
-            </div>
+            {agentMode === 'single' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-surface-300 mb-1">System prompt</label>
+                  <textarea value={agentForm.agentSystemPrompt} onChange={(e) => setAgentForm((p) => ({ ...p, agentSystemPrompt: e.target.value }))} className={`${inputCls} min-h-[120px]`} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-surface-300 mb-1">Base de conhecimento</label>
+                  <textarea value={agentForm.agentKnowledgeBase} onChange={(e) => setAgentForm((p) => ({ ...p, agentKnowledgeBase: e.target.value }))} className={`${inputCls} min-h-[120px]`} />
+                </div>
+              </>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-surface-300 mb-1">Provedor LLM</label>
@@ -330,7 +454,139 @@ export default function EditClinicPage() {
           </div>
         )}
 
-        {tab === 3 && stats && (
+        {tab === 3 && (
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold text-white mb-1">Gatilhos de Ativação</h2>
+            <p className="text-surface-400 text-sm mb-4">
+              Conversas novas nascem sem a IA ativa. Quando o paciente manda uma mensagem que contém
+              uma dessas frases (sem diferenciar maiúsculas/minúsculas), a IA assume a conversa a
+              partir dali. Sem nenhum gatilho ativo, a IA nunca liga sozinha.
+            </p>
+
+            <div className="flex gap-2">
+              <input
+                value={newPhrase}
+                onChange={(e) => setNewPhrase(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addTrigger()}
+                className={inputCls}
+                placeholder="ex: quero agendar"
+              />
+              {agentMode === 'multi' && (
+                <select value={newTriggerCategory} onChange={(e) => setNewTriggerCategory(e.target.value)} className={`${inputCls} max-w-[220px]`}>
+                  <option value="">Sem categoria</option>
+                  {categories.map((c) => (
+                    <option key={c.key} value={c.key}>{c.label}</option>
+                  ))}
+                </select>
+              )}
+              <button onClick={addTrigger} className="px-4 py-2.5 bg-gradient-to-r from-red-600 to-orange-500 text-white font-semibold rounded-xl whitespace-nowrap">
+                + Adicionar
+              </button>
+            </div>
+
+            <div className="space-y-2 mt-4">
+              {triggers.length === 0 && (
+                <p className="text-surface-500 text-sm">Nenhum gatilho cadastrado.</p>
+              )}
+              {triggers.map((t) => (
+                <div key={t.id} className="flex items-center justify-between bg-surface-800 rounded-xl p-3">
+                  <div>
+                    <span className={`text-sm ${t.active ? 'text-white' : 'text-surface-500 line-through'}`}>{t.phrase}</span>
+                    {t.categoryKey && (
+                      <span className="ml-2 text-xs px-2 py-0.5 rounded-lg bg-primary-500/20 text-primary-300">
+                        {categories.find((c) => c.key === t.categoryKey)?.label ?? t.categoryKey}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => toggleTrigger(t)}
+                      className={`text-xs px-2 py-1 rounded-lg ${t.active ? 'bg-accent-500/20 text-accent-300' : 'bg-surface-700 text-surface-400'}`}
+                    >
+                      {t.active ? 'Ativo' : 'Inativo'}
+                    </button>
+                    <button onClick={() => deleteTrigger(t.id)} className="text-surface-500 hover:text-red-400 text-sm">
+                      Remover
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {tab === 4 && (
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold text-white mb-1">Categorias do Agente</h2>
+            <p className="text-surface-400 text-sm mb-4">
+              Só têm efeito com o modo "Múltiplos agentes" ativo (aba Agente IA). Cada categoria tem
+              seu próprio prompt e base de conhecimento; a IA escolhe qual usar por mensagem.
+            </p>
+
+            <div className="flex gap-2">
+              <input
+                value={newCategory.key}
+                onChange={(e) => setNewCategory((p) => ({ ...p, key: e.target.value.toLowerCase().replace(/[^a-z0-9_]+/g, '_') }))}
+                className={`${inputCls} max-w-[220px]`}
+                placeholder="key (ex: atm_ortognatica)"
+              />
+              <input
+                value={newCategory.label}
+                onChange={(e) => setNewCategory((p) => ({ ...p, label: e.target.value }))}
+                className={inputCls}
+                placeholder="Nome legível (ex: Cirurgia Ortognática)"
+              />
+              <button onClick={addCategory} className="px-4 py-2.5 bg-gradient-to-r from-red-600 to-orange-500 text-white font-semibold rounded-xl whitespace-nowrap">
+                + Adicionar
+              </button>
+            </div>
+
+            <div className="space-y-4 mt-4">
+              {categories.length === 0 && (
+                <p className="text-surface-500 text-sm">Nenhuma categoria cadastrada.</p>
+              )}
+              {categories.map((c) => (
+                <div key={c.id} className="bg-surface-800 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-white font-medium">{c.label}</p>
+                      <p className="text-surface-500 text-xs">{c.key}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => updateCategory(c.id, { active: !c.active })}
+                        className={`text-xs px-2 py-1 rounded-lg ${c.active ? 'bg-accent-500/20 text-accent-300' : 'bg-surface-700 text-surface-400'}`}
+                      >
+                        {c.active ? 'Ativa' : 'Inativa'}
+                      </button>
+                      <button onClick={() => deleteCategory(c.id)} className="text-surface-500 hover:text-red-400 text-sm">
+                        Remover
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-surface-400 mb-1">System prompt</label>
+                    <textarea
+                      defaultValue={c.systemPrompt ?? ''}
+                      onBlur={(e) => updateCategory(c.id, { systemPrompt: e.target.value })}
+                      className={`${inputCls} min-h-[90px]`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-surface-400 mb-1">Base de conhecimento</label>
+                    <textarea
+                      defaultValue={c.knowledgeBase ?? ''}
+                      onBlur={(e) => updateCategory(c.id, { knowledgeBase: e.target.value })}
+                      className={`${inputCls} min-h-[90px]`}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {tab === 5 && stats && (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-white mb-4">Estatísticas</h2>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

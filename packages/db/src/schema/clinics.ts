@@ -21,6 +21,9 @@ export const clinics = pgTable('clinics', {
   // agentConfig shape: { assistantName, greeting, businessHours, paymentMethods, insurances, tone }
   agentSystemPrompt: text('agent_system_prompt'),
   agentKnowledgeBase: text('agent_knowledge_base'),
+  agentMode: varchar('agent_mode', { length: 20 }).default('single').notNull(),
+  // single: usa agentSystemPrompt/agentKnowledgeBase acima
+  // multi: usa agent_categories, roteado por conversations.category_key
 
   // Google Calendar integration (single calendar per clinic)
   googleCalendarId: varchar('google_calendar_id', { length: 255 }),

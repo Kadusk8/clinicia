@@ -36,6 +36,20 @@
       "when": 1787167760051,
       "tag": "0004_add_patient_qualification_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788326872424,
+      "tag": "0005_activation_triggers",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788327309767,
+      "tag": "0006_agent_categories_and_mode",
+      "breakpoints": true
     }
   ]
 }

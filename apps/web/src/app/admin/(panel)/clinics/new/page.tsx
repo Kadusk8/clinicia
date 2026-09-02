@@ -15,6 +15,7 @@ export default function NewClinicPage() {
     name: '', slug: '', type: 'medical', phone: '', email: '', address: '', plan: 'trial',
     ownerName: '', ownerEmail: '', ownerPassword: '',
     assistantName: '', greeting: '', agentSystemPrompt: '', agentKnowledgeBase: '', tone: 'profissional_amigavel',
+    agentMode: 'single' as 'single' | 'multi',
   });
 
   const set = (f: string, v: string) => setForm((p) => ({ ...p, [f]: v }));
@@ -88,11 +89,42 @@ export default function NewClinicPage() {
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-white mb-4">Configuração do Agente IA</h2>
             <p className="text-surface-400 text-sm mb-4">Configure o agente que atenderá pelo WhatsApp.</p>
+
+            <div>
+              <label className="block text-sm font-medium text-surface-300 mb-1">Modo do agente</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setForm((p) => ({ ...p, agentMode: 'single' }))}
+                  className={`p-4 rounded-xl border text-left ${form.agentMode === 'single' ? 'border-orange-500 bg-orange-500/10' : 'border-surface-700 bg-surface-800'}`}
+                >
+                  <p className="text-white font-medium">1 agente</p>
+                  <p className="text-surface-400 text-xs mt-1">Um único prompt e base de conhecimento pra clínica inteira.</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm((p) => ({ ...p, agentMode: 'multi' }))}
+                  className={`p-4 rounded-xl border text-left ${form.agentMode === 'multi' ? 'border-orange-500 bg-orange-500/10' : 'border-surface-700 bg-surface-800'}`}
+                >
+                  <p className="text-white font-medium">Múltiplos agentes</p>
+                  <p className="text-surface-400 text-xs mt-1">Categorias com prompt/KB próprios, roteadas por assunto. Configurável após criar.</p>
+                </button>
+              </div>
+            </div>
+
             <div><label className="block text-sm font-medium text-surface-300 mb-1">Nome da assistente</label><input value={form.assistantName} onChange={(e) => set('assistantName', e.target.value)} className={inputCls} placeholder="Ex: Ana, Sofia, Lia..." /></div>
             <div><label className="block text-sm font-medium text-surface-300 mb-1">Tom de voz</label><select value={form.tone} onChange={(e) => set('tone', e.target.value)} className={inputCls}><option value="profissional_amigavel">Profissional e amigável</option><option value="formal">Formal</option><option value="casual">Casual</option><option value="tecnico">Técnico</option></select></div>
             <div><label className="block text-sm font-medium text-surface-300 mb-1">Boas-vindas</label><textarea value={form.greeting} onChange={(e) => set('greeting', e.target.value)} className={`${inputCls} min-h-[80px]`} placeholder="Olá! Sou a assistente da clínica." /></div>
-            <div><label className="block text-sm font-medium text-surface-300 mb-1">Instruções do sistema</label><textarea value={form.agentSystemPrompt} onChange={(e) => set('agentSystemPrompt', e.target.value)} className={`${inputCls} min-h-[100px]`} placeholder="Instruções personalizadas..." /></div>
-            <div><label className="block text-sm font-medium text-surface-300 mb-1">Base de conhecimento</label><textarea value={form.agentKnowledgeBase} onChange={(e) => set('agentKnowledgeBase', e.target.value)} className={`${inputCls} min-h-[100px]`} placeholder="Serviços, preços, horários..." /></div>
+            {form.agentMode === 'single' ? (
+              <>
+                <div><label className="block text-sm font-medium text-surface-300 mb-1">Instruções do sistema</label><textarea value={form.agentSystemPrompt} onChange={(e) => set('agentSystemPrompt', e.target.value)} className={`${inputCls} min-h-[100px]`} placeholder="Instruções personalizadas..." /></div>
+                <div><label className="block text-sm font-medium text-surface-300 mb-1">Base de conhecimento</label><textarea value={form.agentKnowledgeBase} onChange={(e) => set('agentKnowledgeBase', e.target.value)} className={`${inputCls} min-h-[100px]`} placeholder="Serviços, preços, horários..." /></div>
+              </>
+            ) : (
+              <p className="text-surface-500 text-sm bg-surface-800 rounded-xl p-4">
+                No modo múltiplos agentes, prompt e base de conhecimento são configurados por categoria, na aba "Categorias" da clínica depois de criada.
+              </p>
+            )}
           </div>
         )}
 

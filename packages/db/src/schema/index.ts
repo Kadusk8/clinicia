@@ -11,3 +11,5 @@ export * from './knowledge-base';
 export * from './audit-log';
 export * from './super-admins';
 export * from './auth';
+export * from './activation-triggers';
+export * from './agent-categories';

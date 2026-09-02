@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { db, schema } from '@crm-clinicas/db';
-import { eq, desc, sql, ilike, or } from 'drizzle-orm';
+import { eq, desc, sql, ilike, or, and } from 'drizzle-orm';
 import { NotFoundError } from '@crm-clinicas/shared';
 import { EvolutionClient } from '@crm-clinicas/evolution';
 import * as crypto from 'crypto';
@@ -115,6 +115,7 @@ export class AdminService {
     agentConfig?: Record<string, unknown>;
     agentSystemPrompt?: string;
     agentKnowledgeBase?: string;
+    agentMode?: 'single' | 'multi';
     // Owner user
     ownerName: string;
     ownerEmail: string;
@@ -136,6 +137,7 @@ export class AdminService {
           agentConfig: data.agentConfig || {},
           agentSystemPrompt: data.agentSystemPrompt,
           agentKnowledgeBase: data.agentKnowledgeBase,
+          agentMode: data.agentMode || 'single',
           trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
         })
         .returning();
@@ -194,6 +196,8 @@ export class AdminService {
         .where(eq(schema.professionals.clinicId, id));
 
       await tx.delete(schema.messages).where(eq(schema.messages.clinicId, id));
+      await tx.delete(schema.activationTriggers).where(eq(schema.activationTriggers.clinicId, id));
+      await tx.delete(schema.agentCategories).where(eq(schema.agentCategories.clinicId, id));
       await tx.delete(schema.conversations).where(eq(schema.conversations.clinicId, id));
       await tx.delete(schema.followUps).where(eq(schema.followUps.clinicId, id));
       await tx.delete(schema.appointments).where(eq(schema.appointments.clinicId, id));
@@ -287,6 +291,132 @@ export class AdminService {
     }
 
     return { ...clinic, webhookConfigured, webhookError };
+  }
+
+  // ==========================================
+  // Activation Triggers CRUD
+  // ==========================================
+
+  async listActivationTriggers(clinicId: string) {
+    return db
+      .select()
+      .from(schema.activationTriggers)
+      .where(eq(schema.activationTriggers.clinicId, clinicId))
+      .orderBy(desc(schema.activationTriggers.createdAt));
+  }
+
+  async createActivationTrigger(
+    clinicId: string,
+    data: { phrase: string; categoryKey?: string; active?: boolean },
+  ) {
+    const result = await db
+      .insert(schema.activationTriggers)
+      .values({
+        clinicId,
+        phrase: data.phrase,
+        categoryKey: data.categoryKey,
+        active: data.active ?? true,
+      })
+      .returning();
+    return result[0]!;
+  }
+
+  async updateActivationTrigger(
+    clinicId: string,
+    triggerId: string,
+    data: { phrase?: string; categoryKey?: string; active?: boolean },
+  ) {
+    const result = await db
+      .update(schema.activationTriggers)
+      .set(data)
+      .where(
+        and(
+          eq(schema.activationTriggers.id, triggerId),
+          eq(schema.activationTriggers.clinicId, clinicId),
+        ),
+      )
+      .returning();
+
+    if (!result[0]) throw new NotFoundError('Gatilho de ativação', triggerId);
+    return result[0];
+  }
+
+  async deleteActivationTrigger(clinicId: string, triggerId: string) {
+    const result = await db
+      .delete(schema.activationTriggers)
+      .where(
+        and(
+          eq(schema.activationTriggers.id, triggerId),
+          eq(schema.activationTriggers.clinicId, clinicId),
+        ),
+      )
+      .returning({ id: schema.activationTriggers.id });
+
+    if (!result[0]) throw new NotFoundError('Gatilho de ativação', triggerId);
+    return { deleted: true };
+  }
+
+  // ==========================================
+  // Agent Mode
+  // ==========================================
+
+  async updateAgentMode(id: string, agentMode: 'single' | 'multi') {
+    return this.updateClinic(id, { agentMode } as Partial<schema.NewClinic>);
+  }
+
+  // ==========================================
+  // Agent Categories CRUD (agent_mode = 'multi')
+  // ==========================================
+
+  async listAgentCategories(clinicId: string) {
+    return db
+      .select()
+      .from(schema.agentCategories)
+      .where(eq(schema.agentCategories.clinicId, clinicId))
+      .orderBy(desc(schema.agentCategories.createdAt));
+  }
+
+  async createAgentCategory(
+    clinicId: string,
+    data: { key: string; label: string; systemPrompt?: string; knowledgeBase?: string; active?: boolean },
+  ) {
+    const result = await db
+      .insert(schema.agentCategories)
+      .values({
+        clinicId,
+        key: data.key,
+        label: data.label,
+        systemPrompt: data.systemPrompt,
+        knowledgeBase: data.knowledgeBase,
+        active: data.active ?? true,
+      })
+      .returning();
+    return result[0]!;
+  }
+
+  async updateAgentCategory(
+    clinicId: string,
+    categoryId: string,
+    data: { label?: string; systemPrompt?: string; knowledgeBase?: string; active?: boolean },
+  ) {
+    const result = await db
+      .update(schema.agentCategories)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(schema.agentCategories.id, categoryId), eq(schema.agentCategories.clinicId, clinicId)))
+      .returning();
+
+    if (!result[0]) throw new NotFoundError('Categoria de agente', categoryId);
+    return result[0];
+  }
+
+  async deleteAgentCategory(clinicId: string, categoryId: string) {
+    const result = await db
+      .delete(schema.agentCategories)
+      .where(and(eq(schema.agentCategories.id, categoryId), eq(schema.agentCategories.clinicId, clinicId)))
+      .returning({ id: schema.agentCategories.id });
+
+    if (!result[0]) throw new NotFoundError('Categoria de agente', categoryId);
+    return { deleted: true };
   }
 
   // ==========================================

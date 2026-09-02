@@ -48,6 +48,7 @@ export const adminCreateClinicSchema = z.object({
   agentConfig: z.record(z.string(), z.unknown()).optional(),
   agentSystemPrompt: z.string().optional(),
   agentKnowledgeBase: z.string().optional(),
+  agentMode: z.enum(['single', 'multi']).optional(),
   ownerName: z.string().min(2).max(255),
   ownerEmail: z.string().email(),
   ownerPassword: z.string().min(8),
@@ -74,6 +75,41 @@ export const adminUpdateWhatsAppSchema = z.object({
   evolutionApiKey: z.string().min(1).optional(),
   whatsappConnected: z.boolean().optional(),
 });
+
+// ==========================================
+// Activation Trigger Validators (admin)
+// ==========================================
+
+export const adminCreateActivationTriggerSchema = z.object({
+  phrase: z.string().trim().min(1).max(255),
+  categoryKey: z.string().trim().min(1).max(100).optional(),
+  active: z.boolean().optional(),
+});
+
+export const adminUpdateActivationTriggerSchema = adminCreateActivationTriggerSchema.partial();
+
+// ==========================================
+// Agent Mode / Categories Validators (admin)
+// ==========================================
+
+export const adminUpdateAgentModeSchema = z.object({
+  agentMode: z.enum(['single', 'multi']),
+});
+
+export const adminCreateAgentCategorySchema = z.object({
+  key: z
+    .string()
+    .trim()
+    .min(1)
+    .max(100)
+    .regex(/^[a-z0-9_]+$/, 'Key deve conter apenas letras minúsculas, números e underscore'),
+  label: z.string().trim().min(1).max(255),
+  systemPrompt: z.string().optional(),
+  knowledgeBase: z.string().optional(),
+  active: z.boolean().optional(),
+});
+
+export const adminUpdateAgentCategorySchema = adminCreateAgentCategorySchema.omit({ key: true }).partial();
 
 // ==========================================
 // User Validators

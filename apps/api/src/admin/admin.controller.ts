@@ -8,6 +8,11 @@ import {
   adminUpdateClinicSchema,
   adminUpdateAgentSchema,
   adminUpdateWhatsAppSchema,
+  adminCreateActivationTriggerSchema,
+  adminUpdateActivationTriggerSchema,
+  adminUpdateAgentModeSchema,
+  adminCreateAgentCategorySchema,
+  adminUpdateAgentCategorySchema,
 } from '@crm-clinicas/shared';
 import { AdminService } from './admin.service';
 import { SuperAdminGuard } from './super-admin.guard';
@@ -138,5 +143,80 @@ export class AdminController {
   async updateWhatsApp(@Param('id') id: string, @Body() body: any) {
     const data = adminUpdateWhatsAppSchema.parse(body);
     return this.adminService.updateWhatsApp(id, data);
+  }
+
+  // ==========================================
+  // Activation Triggers
+  // ==========================================
+
+  @Get('clinics/:id/activation-triggers')
+  @UseGuards(SuperAdminGuard)
+  async listActivationTriggers(@Param('id') id: string) {
+    return this.adminService.listActivationTriggers(id);
+  }
+
+  @Post('clinics/:id/activation-triggers')
+  @UseGuards(SuperAdminGuard)
+  async createActivationTrigger(@Param('id') id: string, @Body() body: any) {
+    const data = adminCreateActivationTriggerSchema.parse(body);
+    return this.adminService.createActivationTrigger(id, data);
+  }
+
+  @Put('clinics/:id/activation-triggers/:triggerId')
+  @UseGuards(SuperAdminGuard)
+  async updateActivationTrigger(
+    @Param('id') id: string,
+    @Param('triggerId') triggerId: string,
+    @Body() body: any,
+  ) {
+    const data = adminUpdateActivationTriggerSchema.parse(body);
+    return this.adminService.updateActivationTrigger(id, triggerId, data);
+  }
+
+  @Delete('clinics/:id/activation-triggers/:triggerId')
+  @UseGuards(SuperAdminGuard)
+  async deleteActivationTrigger(@Param('id') id: string, @Param('triggerId') triggerId: string) {
+    return this.adminService.deleteActivationTrigger(id, triggerId);
+  }
+
+  // ==========================================
+  // Agent Mode + Categories
+  // ==========================================
+
+  @Put('clinics/:id/agent-mode')
+  @UseGuards(SuperAdminGuard)
+  async updateAgentMode(@Param('id') id: string, @Body() body: any) {
+    const data = adminUpdateAgentModeSchema.parse(body);
+    return this.adminService.updateAgentMode(id, data.agentMode);
+  }
+
+  @Get('clinics/:id/agent-categories')
+  @UseGuards(SuperAdminGuard)
+  async listAgentCategories(@Param('id') id: string) {
+    return this.adminService.listAgentCategories(id);
+  }
+
+  @Post('clinics/:id/agent-categories')
+  @UseGuards(SuperAdminGuard)
+  async createAgentCategory(@Param('id') id: string, @Body() body: any) {
+    const data = adminCreateAgentCategorySchema.parse(body);
+    return this.adminService.createAgentCategory(id, data);
+  }
+
+  @Put('clinics/:id/agent-categories/:categoryId')
+  @UseGuards(SuperAdminGuard)
+  async updateAgentCategory(
+    @Param('id') id: string,
+    @Param('categoryId') categoryId: string,
+    @Body() body: any,
+  ) {
+    const data = adminUpdateAgentCategorySchema.parse(body);
+    return this.adminService.updateAgentCategory(id, categoryId, data);
+  }
+
+  @Delete('clinics/:id/agent-categories/:categoryId')
+  @UseGuards(SuperAdminGuard)
+  async deleteAgentCategory(@Param('id') id: string, @Param('categoryId') categoryId: string) {
+    return this.adminService.deleteAgentCategory(id, categoryId);
   }
 }

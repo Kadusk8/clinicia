@@ -11,6 +11,7 @@ import {
   buildMessageWindow,
   shouldRegenerateSummary,
   buildSummaryPrompt,
+  classifyCategory,
 } from '@crm-clinicas/ai';
 import type { AgentConfig } from '@crm-clinicas/shared';
 
@@ -48,7 +49,11 @@ export const embeddingQueue = new Queue('embedding', { connection });
 const messageWorker = new Worker(
   'process_message',
   async (job) => {
-    const { conversationId, clinicId } = job.data as { conversationId: string; clinicId: string };
+    const { conversationId, clinicId, triggeredCategoryKey } = job.data as {
+      conversationId: string;
+      clinicId: string;
+      triggeredCategoryKey?: string | null;
+    };
     console.log(`🤖 Processing message for conversation: ${conversationId}`);
 
     // 1. Fetch conversation and clinic
@@ -114,12 +119,62 @@ const messageWorker = new Worker(
       totalTurns,
     });
 
-    const dynamicContextParts: string[] = [];
-    if (clinic.agentSystemPrompt) {
-      dynamicContextParts.push(`## Instruções específicas da clínica\n${clinic.agentSystemPrompt}`);
+    const providerKeys = {
+      anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+      openaiApiKey: process.env.OPENAI_API_KEY,
+      googleApiKey: process.env.GOOGLE_AI_API_KEY,
+      openrouterApiKey: process.env.OPENROUTER_API_KEY,
+    };
+
+    let systemPromptText = clinic.agentSystemPrompt;
+    let knowledgeBaseText = clinic.agentKnowledgeBase;
+
+    if (clinic.agentMode === 'multi') {
+      const activeCategories = await db
+        .select()
+        .from(schema.agentCategories)
+        .where(and(eq(schema.agentCategories.clinicId, clinicId), eq(schema.agentCategories.active, true)));
+
+      let categoryKey: string | null = triggeredCategoryKey ?? null;
+
+      // Sem trigger de categoria explícita nesta mensagem: classifica (permite
+      // reclassificar a qualquer momento se o paciente mudar de assunto).
+      if (!categoryKey) {
+        categoryKey = await classifyCategory(
+          activeCategories.map((c): { key: string; label: string } => ({ key: c.key, label: c.label })),
+          recentMessages,
+          agentConfig,
+          providerKeys,
+        );
+      }
+
+      const resolvedCategory = categoryKey
+        ? activeCategories.find((c) => c.key === categoryKey)
+        : undefined;
+
+      if (resolvedCategory) {
+        systemPromptText = resolvedCategory.systemPrompt;
+        knowledgeBaseText = resolvedCategory.knowledgeBase;
+        if (conversation.categoryKey !== resolvedCategory.key) {
+          await db
+            .update(schema.conversations)
+            .set({ categoryKey: resolvedCategory.key, updatedAt: new Date() })
+            .where(eq(schema.conversations.id, conversationId));
+        }
+      } else {
+        // Não classificou com confiança e não há categoria já resolvida:
+        // segue sem contexto de categoria — o prompt principal pede esclarecimento.
+        systemPromptText = null;
+        knowledgeBaseText = null;
+      }
     }
-    if (clinic.agentKnowledgeBase) {
-      dynamicContextParts.push(`## Base de conhecimento\n${clinic.agentKnowledgeBase}`);
+
+    const dynamicContextParts: string[] = [];
+    if (systemPromptText) {
+      dynamicContextParts.push(`## Instruções específicas da clínica\n${systemPromptText}`);
+    }
+    if (knowledgeBaseText) {
+      dynamicContextParts.push(`## Base de conhecimento\n${knowledgeBaseText}`);
     }
 
     const context = {
@@ -132,12 +187,7 @@ const messageWorker = new Worker(
     };
 
     // 5. Run agent
-    const agent = createAgent({
-      anthropicApiKey: process.env.ANTHROPIC_API_KEY,
-      openaiApiKey: process.env.OPENAI_API_KEY,
-      googleApiKey: process.env.GOOGLE_AI_API_KEY,
-      openrouterApiKey: process.env.OPENROUTER_API_KEY,
-    });
+    const agent = createAgent(providerKeys);
 
     // Run summary generation in background if needed (non-blocking for response)
     if (shouldRegenerateSummary({ summary: conversation.summary, recentMessages, totalTurns })) {
