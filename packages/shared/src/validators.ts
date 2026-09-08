@@ -190,7 +190,7 @@ const workingHoursSchema = z
 
 export const createProfessionalSchema = z.object({
   name: z.string().min(2).max(255),
-  speciality: z.string().max(100).optional(),
+  speciality: z.string().max(255).optional(),
   registration: z.string().max(50).optional(),
   workingHours: workingHoursSchema,
   userId: z.string().uuid().optional(),

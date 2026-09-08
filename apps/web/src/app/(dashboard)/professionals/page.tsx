@@ -46,6 +46,7 @@ function WorkingHoursModal({ professional, onClose, onSaved }: {
     );
   });
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   function toggle(key: string) {
     setDays((prev) => ({ ...prev, [key]: { ...prev[key]!, active: !prev[key]!.active } }));
@@ -56,6 +57,7 @@ function WorkingHoursModal({ professional, onClose, onSaved }: {
 
   async function handleSave() {
     setSaving(true);
+    setError('');
     const workingHours: WorkingHours = {};
     for (const key of DAY_KEYS) {
       const d = days[key];
@@ -67,6 +69,8 @@ function WorkingHoursModal({ professional, onClose, onSaved }: {
       const updated = await api.updateWorkingHours(professional.id, workingHours) as Professional;
       onSaved(updated);
       onClose();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erro ao salvar horários');
     } finally {
       setSaving(false);
     }
@@ -125,6 +129,8 @@ function WorkingHoursModal({ professional, onClose, onSaved }: {
           })}
         </div>
 
+        {error && <p className="px-6 text-sm text-red-500 -mt-2 mb-2">{error}</p>}
+
         <div className="px-6 py-4 border-t border-surface-200 flex justify-end gap-2">
           <button onClick={onClose} className="btn-ghost text-sm">Cancelar</button>
           <button onClick={handleSave} disabled={saving} className="btn-primary text-sm disabled:opacity-60">
@@ -149,10 +155,12 @@ function ProfessionalModal({ professional, onClose, onSaved }: {
   const [speciality, setSpeciality] = useState(professional?.speciality ?? '');
   const [registration, setReg]      = useState(professional?.registration ?? '');
   const [saving, setSaving]         = useState(false);
+  const [error, setError]           = useState('');
 
   async function handleSave() {
     if (!name.trim()) return;
     setSaving(true);
+    setError('');
     try {
       let result: Professional;
       if (professional) {
@@ -162,6 +170,8 @@ function ProfessionalModal({ professional, onClose, onSaved }: {
       }
       onSaved(result);
       onClose();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erro ao salvar profissional');
     } finally {
       setSaving(false);
     }
@@ -190,6 +200,7 @@ function ProfessionalModal({ professional, onClose, onSaved }: {
             <label className="block text-sm font-medium text-surface-600 mb-1">CRM / Registro</label>
             <input type="text" className="input" value={registration} onChange={(e) => setReg(e.target.value)} placeholder="CRM 12345" />
           </div>
+          {error && <p className="text-sm text-red-500">{error}</p>}
         </div>
 
         <div className="px-6 py-4 border-t border-surface-200 flex justify-end gap-2">
