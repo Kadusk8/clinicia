@@ -2,6 +2,7 @@ import { db, schema } from '@crm-clinicas/db';
 import { and, eq } from 'drizzle-orm';
 import type { ToolContext } from '../context.js';
 import { pushAppointmentToGoogle } from '../../google-calendar-sync.js';
+import { invalidIdError } from '../validate.js';
 
 export async function agendarConsulta(
   input: {
@@ -12,6 +13,15 @@ export async function agendarConsulta(
   },
   context: ToolContext,
 ): Promise<string> {
+  for (const [field, value] of [
+    ['patientId', input.patientId],
+    ['serviceId', input.serviceId],
+    ['professionalId', input.professionalId],
+  ] as const) {
+    const idError = invalidIdError(field, value);
+    if (idError) return idError;
+  }
+
   // Validate service
   const [service] = await db
     .select()

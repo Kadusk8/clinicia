@@ -2,6 +2,7 @@ import { db, schema } from '@crm-clinicas/db';
 import { and, eq } from 'drizzle-orm';
 import type { ToolContext } from '../context.js';
 import { updateAppointmentInGoogle, removeAppointmentFromGoogle } from '../../google-calendar-sync.js';
+import { invalidIdError } from '../validate.js';
 
 export async function cancelarOuRemarcar(
   input: {
@@ -12,6 +13,9 @@ export async function cancelarOuRemarcar(
   },
   context: ToolContext,
 ): Promise<string> {
+  const appointmentIdError = invalidIdError('appointmentId', input.appointmentId);
+  if (appointmentIdError) return appointmentIdError;
+
   // Verify ownership
   const [apt] = await db
     .select()

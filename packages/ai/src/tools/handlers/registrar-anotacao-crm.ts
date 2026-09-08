@@ -1,11 +1,15 @@
 import { db, schema } from '@crm-clinicas/db';
 import { and, eq } from 'drizzle-orm';
 import type { ToolContext } from '../context.js';
+import { invalidIdError } from '../validate.js';
 
 export async function registrarAnotacaoCrm(
   input: { patientId: string; note: string; tags?: string[] },
   context: ToolContext,
 ): Promise<string> {
+  const patientIdError = invalidIdError('patientId', input.patientId);
+  if (patientIdError) return patientIdError;
+
   const existing = await db
     .select({ notes: schema.patients.notes, tags: schema.patients.tags })
     .from(schema.patients)

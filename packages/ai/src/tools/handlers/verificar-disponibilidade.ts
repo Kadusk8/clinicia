@@ -3,6 +3,7 @@ import { and, eq, inArray, lt, gt } from 'drizzle-orm';
 import type { WorkingHours, DayOfWeek } from '@crm-clinicas/shared';
 import type { ToolContext } from '../context.js';
 import { getGoogleBusyIntervals } from '../../google-calendar-sync.js';
+import { invalidIdError } from '../validate.js';
 
 const DAY_KEYS: DayOfWeek[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const MAX_DAYS = 30;
@@ -18,6 +19,15 @@ export async function verificarDisponibilidade(
   input: { serviceId: string; professionalId?: string; from: string; to: string },
   context: ToolContext,
 ): Promise<string> {
+  const serviceIdError = invalidIdError('serviceId', input.serviceId);
+  if (serviceIdError) return serviceIdError;
+  // professionalId is optional — "buscar em todos os profissionais" é um null/undefined
+  // legítimo, só valida quando um valor de fato foi passado.
+  if (input.professionalId != null) {
+    const professionalIdError = invalidIdError('professionalId', input.professionalId);
+    if (professionalIdError) return professionalIdError;
+  }
+
   const fromDate = new Date(input.from);
   const toDate = new Date(input.to);
 
