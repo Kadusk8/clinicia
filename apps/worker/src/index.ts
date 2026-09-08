@@ -503,7 +503,12 @@ for (const worker of [messageWorker, followUpWorker, embeddingWorker]) {
     console.log(`✅ Job ${job.id} completed (${job.queueName})`);
   });
   worker.on('failed', (job, err) => {
-    console.error(`❌ Job ${job?.id} failed (${job?.queueName}):`, err.message);
+    // err.message sozinho escondia a causa real de erros de serviço externo
+    // (ExternalServiceError carrega status/body da resposta em `details`,
+    // que não faz parte de `message`) — sem isso não dava pra saber, por
+    // exemplo, por que um envio pra Evolution Go falhou.
+    const details = (err as { details?: unknown }).details;
+    console.error(`❌ Job ${job?.id} failed (${job?.queueName}):`, err.message, details ? JSON.stringify(details) : '');
   });
 }
 
