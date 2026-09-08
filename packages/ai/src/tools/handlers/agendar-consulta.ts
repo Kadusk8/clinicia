@@ -3,6 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import type { ToolContext } from '../context.js';
 import { pushAppointmentToGoogle } from '../../google-calendar-sync.js';
 import { invalidIdError } from '../validate.js';
+import { markDealScheduled } from '../pipeline.js';
 
 export async function agendarConsulta(
   input: {
@@ -149,6 +150,8 @@ export async function agendarConsulta(
     `${service.name} - ${patient.name}`,
     'Agendado via assistente virtual (WhatsApp).',
   );
+
+  await markDealScheduled(context.clinicId, input.patientId, input.serviceId, service.priceCents);
 
   const startsAtFormatted = startsAt.toLocaleString('pt-BR', {
     timeZone: 'America/Sao_Paulo',

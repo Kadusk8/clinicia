@@ -10,3 +10,4 @@ export {
   updateAppointmentInGoogle,
   removeAppointmentFromGoogle,
 } from './google-calendar-sync.js';
+export { ensureLeadDeal, markDealScheduled } from './tools/pipeline.js';

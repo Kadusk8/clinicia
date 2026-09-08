@@ -2,7 +2,9 @@ import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { db, schema } from '@crm-clinicas/db';
 import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
 import { NotFoundError, type PaginationInput } from '@crm-clinicas/shared';
-import { pushAppointmentToGoogle, updateAppointmentInGoogle, removeAppointmentFromGoogle } from '@crm-clinicas/ai';
+import {
+  pushAppointmentToGoogle, updateAppointmentInGoogle, removeAppointmentFromGoogle, markDealScheduled,
+} from '@crm-clinicas/ai';
 import { FollowUpsService } from '../follow-ups/follow-ups.service';
 
 @Injectable()
@@ -116,6 +118,8 @@ export class AppointmentsService {
       `${service[0]?.name ?? 'Consulta'} - ${patient?.name ?? ''}`.trim(),
       'Agendado via CRM.',
     );
+
+    await markDealScheduled(clinicId, data.patientId, data.serviceId, service[0]?.priceCents ?? null);
 
     return appointment;
   }

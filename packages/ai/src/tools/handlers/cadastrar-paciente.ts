@@ -1,6 +1,7 @@
 import { db, schema } from '@crm-clinicas/db';
 import { and, eq } from 'drizzle-orm';
 import type { ToolContext } from '../context.js';
+import { ensureLeadDeal } from '../pipeline.js';
 
 export async function cadastrarPaciente(
   input: { phone: string; name: string; birthDate?: string; email?: string; insurance?: string },
@@ -43,6 +44,8 @@ export async function cadastrarPaciente(
       if (updated) patient = updated;
     }
 
+    await ensureLeadDeal(context.clinicId, patient.id);
+
     return JSON.stringify({
       created: false,
       message: 'Paciente já cadastrado — dados atualizados.',
@@ -68,6 +71,8 @@ export async function cadastrarPaciente(
   if (!inserted) {
     return JSON.stringify({ created: false, error: 'Falha ao cadastrar paciente.' });
   }
+
+  await ensureLeadDeal(context.clinicId, inserted.id);
 
   return JSON.stringify({
     created: true,
