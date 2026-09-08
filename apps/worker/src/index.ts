@@ -67,6 +67,25 @@ function withToolResults(content: string, toolCalls: unknown): string {
     `Reutilize estes IDs exatos — não invente nem reescreva nenhum:\n${lines.join('\n')}]`;
 }
 
+/**
+ * O modelo respondia com o texto inteiro (às vezes vários parágrafos) numa
+ * única mensagem de WhatsApp — lido como um bloco de texto grande, nada
+ * parecido com a forma como uma pessoa realmente conversa por lá. Quebra a
+ * resposta em balões menores nas quebras de parágrafo (linha em branco) e
+ * cada balão vira um envio separado, com uma pequena pausa entre eles pra
+ * simular alguém digitando.
+ */
+function splitIntoWhatsAppMessages(text: string): string[] {
+  return text
+    .split(/\n{2,}/)
+    .map((chunk) => chunk.trim())
+    .filter(Boolean);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 // ==========================================
 // Queues
 // ==========================================
@@ -277,8 +296,12 @@ const messageWorker = new Worker(
     }
     const clinicEvolutionClient = new EvolutionClient(clinic.evolutionApiUrl, clinic.evolutionApiKey);
     const phone = patientPhone.replace(/\D/g, '');
-    await clinicEvolutionClient.sendText({ number: phone, text: result.response });
-    console.log(`✅ Agent reply sent to ${phone} (conversation: ${conversationId})`);
+    const bubbles = splitIntoWhatsAppMessages(result.response);
+    for (let i = 0; i < bubbles.length; i++) {
+      await clinicEvolutionClient.sendText({ number: phone, text: bubbles[i]! });
+      if (i < bubbles.length - 1) await sleep(1200);
+    }
+    console.log(`✅ Agent reply sent to ${phone} in ${bubbles.length} message(s) (conversation: ${conversationId})`);
   },
   { connection, concurrency: 5, limiter: { max: 10, duration: 1000 } },
 );
