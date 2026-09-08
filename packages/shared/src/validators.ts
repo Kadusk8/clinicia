@@ -226,7 +226,7 @@ export const updateAppointmentSchema = z.object({
 export const createDealSchema = z.object({
   patientId: z.string().uuid(),
   serviceId: z.string().uuid().optional(),
-  stage: z.enum(DEAL_STAGES).default('lead'),
+  stage: z.enum(DEAL_STAGES).default('lead_novo'),
   valueCents: z.number().int().nonnegative().optional(),
   ownerId: z.string().uuid().optional(),
   notes: z.string().optional(),

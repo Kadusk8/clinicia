@@ -23,14 +23,17 @@ export type ConversationStatus = (typeof CONVERSATION_STATUSES)[number];
 export const MESSAGE_ROLES = ['patient', 'agent', 'staff', 'system'] as const;
 export type MessageRole = (typeof MESSAGE_ROLES)[number];
 
+// Estágios do funil do Kanban (aba Pipeline). Precisam bater exatamente com as
+// chaves de STAGES em apps/web/src/app/(dashboard)/pipeline/page.tsx — um deal
+// criado com um stage fora desta lista simplesmente não aparece em nenhuma
+// coluna do Kanban (bug real encontrado: o auto-preenchimento do pipeline
+// usava um vocabulário antigo em inglês que não tinha mais coluna nenhuma).
 export const DEAL_STAGES = [
-  'lead',
-  'qualified',
-  'scheduled',
-  'attended',
-  'treatment',
-  'won',
-  'lost',
+  'lead_novo',
+  'triagem',
+  'agendado',
+  'presenca_confirmada',
+  'faltou_remarcar',
 ] as const;
 export type DealStage = (typeof DEAL_STAGES)[number];
 
