@@ -25,7 +25,10 @@ export async function agendarConsulta(
     .limit(1);
 
   if (!service) {
-    return JSON.stringify({ success: false, error: 'Serviço não encontrado.' });
+    return JSON.stringify({
+      success: false,
+      error: 'serviceId inválido — não é um serviço desta clínica. Use exatamente o id retornado por listar_servicos, nunca invente um valor.',
+    });
   }
 
   // Validate patient
@@ -41,7 +44,36 @@ export async function agendarConsulta(
     .limit(1);
 
   if (!patient) {
-    return JSON.stringify({ success: false, error: 'Paciente não encontrado.' });
+    return JSON.stringify({
+      success: false,
+      error: 'patientId inválido — não é um paciente desta clínica. Use exatamente o id retornado por buscar_paciente/cadastrar_paciente, nunca invente um valor.',
+    });
+  }
+
+  // Validate professional — e que ele realmente atende esse serviço (mesma regra
+  // de verificar_disponibilidade). Sem isso, um professionalId inventado ou de
+  // outra clínica só ia estourar como erro cru de FK do Postgres na hora do insert.
+  const [professionalLink] = await db
+    .select({ id: schema.professionals.id })
+    .from(schema.professionals)
+    .innerJoin(
+      schema.professionalServices,
+      eq(schema.professionalServices.professionalId, schema.professionals.id),
+    )
+    .where(
+      and(
+        eq(schema.professionals.id, input.professionalId),
+        eq(schema.professionals.clinicId, context.clinicId),
+        eq(schema.professionalServices.serviceId, input.serviceId),
+      ),
+    )
+    .limit(1);
+
+  if (!professionalLink) {
+    return JSON.stringify({
+      success: false,
+      error: 'professionalId inválido ou este profissional não atende esse serviço. Use exatamente o professionalId retornado por verificar_disponibilidade para esse serviceId, nunca invente um valor.',
+    });
   }
 
   const startsAt = new Date(input.startsAt);

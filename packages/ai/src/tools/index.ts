@@ -120,13 +120,17 @@ export const agentTools = [
   },
   {
     name: 'agendar_consulta',
-    description: 'Cria agendamento. Só chamar após confirmação explícita do horário pelo paciente.',
+    description: 'Cria agendamento. Só chamar após confirmação explícita do horário pelo paciente. ' +
+      'patientId, serviceId e professionalId têm que ser exatamente os IDs (UUID) já retornados ' +
+      'nesta conversa por buscar_paciente/cadastrar_paciente, listar_servicos e verificar_disponibilidade ' +
+      '(o professionalId vem do resultado de verificar_disponibilidade, não de outro lugar). Nunca invente, ' +
+      'abrevie ou adivinhe um ID — se não tiver algum deles em mãos ainda, chame a tool correspondente antes.',
     input_schema: {
       type: 'object' as const,
       properties: {
-        patientId: { type: 'string' as const, description: 'UUID do paciente' },
-        serviceId: { type: 'string' as const, description: 'UUID do serviço' },
-        professionalId: { type: 'string' as const, description: 'UUID do profissional' },
+        patientId: { type: 'string' as const, description: 'UUID do paciente, exatamente como retornado por buscar_paciente/cadastrar_paciente' },
+        serviceId: { type: 'string' as const, description: 'UUID do serviço, exatamente como retornado por listar_servicos' },
+        professionalId: { type: 'string' as const, description: 'UUID do profissional, exatamente como retornado por verificar_disponibilidade' },
         startsAt: { type: 'string' as const, description: 'Data/hora início (ISO datetime)' },
       },
       required: ['patientId', 'serviceId', 'professionalId', 'startsAt'],
