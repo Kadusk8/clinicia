@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { db, schema } from '@crm-clinicas/db';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, sql, inArray } from 'drizzle-orm';
 import { NotFoundError, type PaginationInput } from '@crm-clinicas/shared';
+
+type CreateInput = Omit<schema.NewProfessional, 'clinicId'> & { serviceIds?: string[] };
+type UpdateInput = Partial<Omit<schema.NewProfessional, 'clinicId'>> & { serviceIds?: string[] };
 
 @Injectable()
 export class ProfessionalsService {
@@ -24,7 +27,13 @@ export class ProfessionalsService {
     ]);
 
     const total = Number(countResult[0]?.count ?? 0);
-    return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+    return {
+      data: await this.attachServiceIds(data),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
   }
 
   async findById(clinicId: string, id: string) {
@@ -37,28 +46,86 @@ export class ProfessionalsService {
       .limit(1);
 
     if (!result[0]) throw new NotFoundError('Profissional', id);
-    return result[0];
+    const [withServices] = await this.attachServiceIds(result);
+    return withServices;
   }
 
-  async create(clinicId: string, data: Omit<schema.NewProfessional, 'clinicId'>) {
+  // Junta os serviços vinculados (professional_services) em cada profissional —
+  // a tela precisa disso pra mostrar/editar quais serviços ele atende.
+  private async attachServiceIds<T extends { id: string }>(
+    rows: T[],
+  ): Promise<(T & { serviceIds: string[] })[]> {
+    if (rows.length === 0) return [];
+    const ids = rows.map((r) => r.id);
+    const links = await db
+      .select()
+      .from(schema.professionalServices)
+      .where(inArray(schema.professionalServices.professionalId, ids));
+
+    const byProfessional = new Map<string, string[]>();
+    for (const link of links) {
+      const arr = byProfessional.get(link.professionalId) ?? [];
+      arr.push(link.serviceId);
+      byProfessional.set(link.professionalId, arr);
+    }
+
+    return rows.map((r) => ({ ...r, serviceIds: byProfessional.get(r.id) ?? [] }));
+  }
+
+  // undefined = não mexe nos vínculos (ex: PATCH de working-hours, que não envia serviceIds).
+  // [] explícito = desvincula de tudo.
+  private async syncServiceLinks(professionalId: string, serviceIds: string[] | undefined) {
+    if (serviceIds === undefined) return;
+    await db
+      .delete(schema.professionalServices)
+      .where(eq(schema.professionalServices.professionalId, professionalId));
+    if (serviceIds.length > 0) {
+      await db
+        .insert(schema.professionalServices)
+        .values(serviceIds.map((serviceId) => ({ professionalId, serviceId })));
+    }
+  }
+
+  async create(clinicId: string, data: CreateInput) {
+    const { serviceIds, ...rest } = data;
     const result = await db
       .insert(schema.professionals)
-      .values({ ...data, clinicId })
+      .values({ ...rest, clinicId })
       .returning();
-    return result[0]!;
+    const professional = result[0]!;
+    await this.syncServiceLinks(professional.id, serviceIds);
+    const [withServices] = await this.attachServiceIds([professional]);
+    return withServices;
   }
 
-  async update(clinicId: string, id: string, data: Partial<schema.NewProfessional>) {
-    const result = await db
-      .update(schema.professionals)
-      .set(data)
-      .where(
-        and(eq(schema.professionals.clinicId, clinicId), eq(schema.professionals.id, id)),
-      )
-      .returning();
+  async update(clinicId: string, id: string, data: UpdateInput) {
+    const { serviceIds, ...rest } = data;
 
-    if (!result[0]) throw new NotFoundError('Profissional', id);
-    return result[0];
+    let updated: schema.Professional | undefined;
+    if (Object.keys(rest).length > 0) {
+      const result = await db
+        .update(schema.professionals)
+        .set(rest)
+        .where(
+          and(eq(schema.professionals.clinicId, clinicId), eq(schema.professionals.id, id)),
+        )
+        .returning();
+      updated = result[0];
+    } else {
+      const result = await db
+        .select()
+        .from(schema.professionals)
+        .where(
+          and(eq(schema.professionals.clinicId, clinicId), eq(schema.professionals.id, id)),
+        )
+        .limit(1);
+      updated = result[0];
+    }
+
+    if (!updated) throw new NotFoundError('Profissional', id);
+    await this.syncServiceLinks(id, serviceIds);
+    const [withServices] = await this.attachServiceIds([updated]);
+    return withServices;
   }
 
   async delete(clinicId: string, id: string) {

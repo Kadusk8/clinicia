@@ -9,7 +9,7 @@ export const professionals = pgTable('professionals', {
     .notNull(),
   userId: uuid('user_id').references(() => users.id),
   name: varchar('name', { length: 255 }).notNull(),
-  speciality: varchar('speciality', { length: 100 }),
+  speciality: varchar('speciality', { length: 255 }),
   registration: varchar('registration', { length: 50 }), // CRM, CRO, etc.
   googleCalendarId: varchar('google_calendar_id', { length: 255 }),
   workingHours: jsonb('working_hours').default({}),

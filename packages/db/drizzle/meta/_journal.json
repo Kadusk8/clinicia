@@ -57,6 +57,13 @@
       "when": 1788826346450,
       "tag": "0007_kb_category_scope",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788837345722,
+      "tag": "0008_professional_speciality_255",
+      "breakpoints": true
     }
   ]
 }

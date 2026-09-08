@@ -1,0 +1,1 @@
+ALTER TABLE "professionals" ALTER COLUMN "speciality" SET DATA TYPE varchar(255);

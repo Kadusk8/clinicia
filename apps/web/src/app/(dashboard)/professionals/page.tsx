@@ -17,6 +17,12 @@ interface Professional {
   speciality: string | null;
   registration: string | null;
   workingHours: WorkingHours | null;
+  serviceIds: string[];
+}
+
+interface ServiceOption {
+  id: string;
+  name: string;
 }
 
 const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
@@ -154,8 +160,20 @@ function ProfessionalModal({ professional, onClose, onSaved }: {
   const [name, setName]             = useState(professional?.name ?? '');
   const [speciality, setSpeciality] = useState(professional?.speciality ?? '');
   const [registration, setReg]      = useState(professional?.registration ?? '');
+  const [serviceIds, setServiceIds] = useState<string[]>(professional?.serviceIds ?? []);
+  const [services, setServices]     = useState<ServiceOption[]>([]);
   const [saving, setSaving]         = useState(false);
   const [error, setError]           = useState('');
+
+  useEffect(() => {
+    api.getServices({ pageSize: '100' })
+      .then((res) => setServices(((res as { data: ServiceOption[] }).data ?? [])))
+      .catch(() => setServices([]));
+  }, []);
+
+  function toggleService(id: string) {
+    setServiceIds((prev) => prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]);
+  }
 
   async function handleSave() {
     if (!name.trim()) return;
@@ -164,9 +182,9 @@ function ProfessionalModal({ professional, onClose, onSaved }: {
     try {
       let result: Professional;
       if (professional) {
-        result = await api.updateProfessional(professional.id, { name, speciality, registration }) as Professional;
+        result = await api.updateProfessional(professional.id, { name, speciality, registration, serviceIds }) as Professional;
       } else {
-        result = await api.createProfessional({ name, speciality, registration }) as Professional;
+        result = await api.createProfessional({ name, speciality, registration, serviceIds }) as Professional;
       }
       onSaved(result);
       onClose();
@@ -199,6 +217,27 @@ function ProfessionalModal({ professional, onClose, onSaved }: {
           <div>
             <label className="block text-sm font-medium text-surface-600 mb-1">CRM / Registro</label>
             <input type="text" className="input" value={registration} onChange={(e) => setReg(e.target.value)} placeholder="CRM 12345" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-surface-600 mb-1">Serviços que atende</label>
+            {services.length === 0 ? (
+              <p className="text-xs text-surface-400">Nenhum serviço cadastrado ainda — cadastre em "Serviços" primeiro.</p>
+            ) : (
+              <div className="space-y-1.5 max-h-40 overflow-y-auto border border-surface-200 rounded-xl p-3">
+                {services.map((s) => (
+                  <label key={s.id} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 accent-primary-500"
+                      checked={serviceIds.includes(s.id)}
+                      onChange={() => toggleService(s.id)}
+                    />
+                    <span className="text-sm text-surface-700">{s.name}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+            <p className="text-xs text-surface-500 mt-1">Sem isso a IA não encontra horário pra agendar com este profissional.</p>
           </div>
           {error && <p className="text-sm text-red-500">{error}</p>}
         </div>
@@ -299,6 +338,10 @@ export default function ProfessionalsPage() {
 
                 <div className="text-xs text-surface-400 bg-surface-50 rounded-lg px-3 py-2">
                   <span className="font-medium">Horários:</span> {activeDays(prof.workingHours)}
+                </div>
+                <div className={`text-xs rounded-lg px-3 py-2 ${prof.serviceIds.length > 0 ? 'text-surface-400 bg-surface-50' : 'text-amber-600 bg-amber-50'}`}>
+                  <span className="font-medium">Serviços:</span>{' '}
+                  {prof.serviceIds.length > 0 ? `${prof.serviceIds.length} vinculado(s)` : 'nenhum — IA não vai achar horário'}
                 </div>
 
                 <div className="flex gap-2 mt-auto">
