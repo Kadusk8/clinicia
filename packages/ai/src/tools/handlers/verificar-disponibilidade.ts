@@ -5,9 +5,38 @@ import type { ToolContext } from '../context.js';
 import { getGoogleBusyIntervals } from '../../google-calendar-sync.js';
 import { invalidIdError } from '../validate.js';
 
-const DAY_KEYS: DayOfWeek[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const MAX_DAYS = 30;
 const MAX_SLOTS_PER_PROFESSIONAL = 10;
+
+// workingHours é sempre horário de Brasília ("08:00" etc.), mas o processo
+// roda em UTC em produção — Date#getHours/getDay/setHours usam o timezone
+// do processo, não o da clínica, então precisam ficar longe dessa conta.
+// Brasil não tem mais horário de verão desde 2019, então -03:00 é um offset
+// fixo seguro pra São Paulo.
+const CLINIC_UTC_OFFSET = '-03:00';
+const WEEKDAY_BY_SHORT_NAME: Record<string, DayOfWeek> = {
+  Sun: 'sun', Mon: 'mon', Tue: 'tue', Wed: 'wed', Thu: 'thu', Fri: 'fri', Sat: 'sat',
+};
+
+function brasiliaDateParts(instant: Date): { year: number; month: number; day: number; weekday: DayOfWeek } {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short',
+  }).formatToParts(instant);
+  const get = (type: string) => parts.find((p) => p.type === type)!.value;
+  return {
+    year: Number(get('year')),
+    month: Number(get('month')),
+    day: Number(get('day')),
+    weekday: WEEKDAY_BY_SHORT_NAME[get('weekday')]!,
+  };
+}
+
+// Instante UTC correspondente a HH:MM naquele dia, em horário de Brasília.
+function brasiliaInstant(year: number, month: number, day: number, hour: number, minute: number): Date {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return new Date(`${year}-${pad(month)}-${pad(day)}T${pad(hour)}:${pad(minute)}:00${CLINIC_UTC_OFFSET}`);
+}
 
 interface ProfessionalToCheck {
   id: string;
@@ -142,27 +171,24 @@ export async function verificarDisponibilidade(
     const profConflicts = conflicts.filter((c) => c.professionalId === prof.id);
     const slots: Array<{ startsAt: string; endsAt: string }> = [];
 
-    const cursor = new Date(fromDate);
-    cursor.setHours(0, 0, 0, 0);
+    let cursorInstant = fromDate;
 
-    while (cursor <= effectiveTo && slots.length < MAX_SLOTS_PER_PROFESSIONAL) {
-      const dayKey = DAY_KEYS[cursor.getDay()]!;
-      const dayIntervals = prof.workingHours[dayKey] ?? [];
+    for (let dayOffset = 0; dayOffset <= MAX_DAYS && slots.length < MAX_SLOTS_PER_PROFESSIONAL; dayOffset++) {
+      const { year, month, day, weekday } = brasiliaDateParts(cursorInstant);
+      const dayIntervals = prof.workingHours[weekday] ?? [];
 
       for (const interval of dayIntervals) {
         const [startH = 0, startM = 0] = interval.start.split(':').map(Number);
         const [endH = 0, endM = 0] = interval.end.split(':').map(Number);
 
-        const dayStart = new Date(cursor);
-        dayStart.setHours(startH, startM, 0, 0);
-
-        const dayEnd = new Date(cursor);
-        dayEnd.setHours(endH, endM, 0, 0);
+        const dayStart = brasiliaInstant(year, month, day, startH, startM);
+        const dayEnd = brasiliaInstant(year, month, day, endH, endM);
 
         let slotStart = new Date(Math.max(dayStart.getTime(), fromDate.getTime()));
 
         while (
           slotStart.getTime() + slotDurationMs <= dayEnd.getTime() &&
+          slotStart.getTime() + slotDurationMs <= effectiveTo.getTime() &&
           slots.length < MAX_SLOTS_PER_PROFESSIONAL
         ) {
           const slotEnd = new Date(slotStart.getTime() + slotDurationMs);
@@ -188,7 +214,11 @@ export async function verificarDisponibilidade(
         if (slots.length >= MAX_SLOTS_PER_PROFESSIONAL) break;
       }
 
-      cursor.setDate(cursor.getDate() + 1);
+      // Meio-dia de Brasília do dia atual + 24h cai sempre no dia seguinte certo,
+      // sem depender do timezone do processo.
+      const nextDay = new Date(brasiliaInstant(year, month, day, 12, 0).getTime() + 24 * 60 * 60 * 1000);
+      if (nextDay > effectiveTo) break;
+      cursorInstant = nextDay;
     }
 
     if (slots.length > 0) {
