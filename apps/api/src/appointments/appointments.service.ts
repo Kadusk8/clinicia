@@ -127,6 +127,29 @@ export class AppointmentsService {
       updateData.cancelledAt = new Date();
     }
 
+    // Remarcar (mudar startsAt) sem recalcular endsAt deixava a duração errada —
+    // endsAt ficava com o horário absoluto antigo, podendo até vir antes do novo
+    // startsAt. Recalcula a partir da duração do serviço, igual create() já faz.
+    if (data.startsAt && !data.endsAt) {
+      const [current] = await db
+        .select({ serviceId: schema.appointments.serviceId })
+        .from(schema.appointments)
+        .where(and(eq(schema.appointments.clinicId, clinicId), eq(schema.appointments.id, id)))
+        .limit(1);
+
+      if (current) {
+        const [service] = await db
+          .select({ durationMin: schema.services.durationMin })
+          .from(schema.services)
+          .where(eq(schema.services.id, current.serviceId))
+          .limit(1);
+
+        const durationMin = service?.durationMin ?? 30;
+        const startsAt = new Date(data.startsAt);
+        updateData.endsAt = new Date(startsAt.getTime() + durationMin * 60 * 1000);
+      }
+    }
+
     const result = await db
       .update(schema.appointments)
       .set(updateData)

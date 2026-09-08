@@ -125,6 +125,10 @@ class ApiClient {
     return this.request('POST', '/appointments', data);
   }
 
+  updateAppointment(id: string, data: unknown) {
+    return this.request('PUT', `/appointments/${id}`, data);
+  }
+
   cancelAppointment(id: string, reason?: string) {
     return this.request('PUT', `/appointments/${id}/cancel`, { reason });
   }

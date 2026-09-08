@@ -57,10 +57,59 @@ function isSameDay(a: Date, b: Date) {
   return a.toDateString() === b.toDateString();
 }
 
+// Os inputs de data/hora do modal trabalham sempre em horário de Brasília,
+// não no timezone do navegador — evita confusão pra quem acessa de outro
+// fuso e mantém consistência com o resto do sistema (agente, tools).
+function toBrasiliaInputValue(iso: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(new Date(iso));
+  const get = (type: string) => parts.find((p) => p.type === type)!.value;
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
+}
+
+function fromBrasiliaInputValue(value: string): string {
+  return new Date(`${value}:00-03:00`).toISOString();
+}
+
 export default function AgendaPage() {
   const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Modal de detalhe/edição do agendamento
+  const [selected, setSelected] = useState<Appointment | null>(null);
+  const [editStartsAt, setEditStartsAt] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+
+  function openAppointment(apt: Appointment) {
+    setSelected(apt);
+    setEditStartsAt(toBrasiliaInputValue(apt.startsAt));
+    setEditNotes(apt.notes ?? '');
+    setSaveError('');
+  }
+
+  async function handleSaveAppointment() {
+    if (!selected) return;
+    setSaving(true);
+    setSaveError('');
+    try {
+      const updated = await api.updateAppointment(selected.id, {
+        startsAt: fromBrasiliaInputValue(editStartsAt),
+        notes: editNotes,
+      }) as Appointment;
+      setAppointments((prev) => prev.map((a) => (a.id === selected.id ? { ...a, ...updated } : a)));
+      setSelected(null);
+    } catch (err: unknown) {
+      setSaveError(err instanceof Error ? err.message : 'Erro ao salvar agendamento');
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const weekEnd = addDays(weekStart, 7);
@@ -213,6 +262,7 @@ export default function AgendaPage() {
                       return (
                         <div
                           key={apt.id}
+                          onClick={() => openAppointment(apt)}
                           title={`${apt.patientName ?? 'Paciente'} · ${apt.serviceName ?? 'Consulta'}\n${STATUS_LABEL[apt.status] ?? apt.status}`}
                           style={{ top, height, left: 2, right: 2 }}
                           className={`absolute rounded border-l-2 px-1.5 py-1 text-[11px] overflow-hidden cursor-pointer hover:brightness-95 transition-all ${colorClass}`}
@@ -235,6 +285,61 @@ export default function AgendaPage() {
           )}
         </div>
       </div>
+
+      {/* Modal de detalhe/edição */}
+      {selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4">
+            <div className="px-6 py-4 border-b border-surface-200 flex items-center justify-between">
+              <div>
+                <h2 className="font-semibold text-surface-900">
+                  {selected.patientName ?? selected.patientPhone ?? 'Paciente'}
+                </h2>
+                <p className="text-sm text-surface-500">
+                  {selected.serviceName ?? 'Consulta'} · {selected.professionalName ?? 'Profissional'}
+                </p>
+              </div>
+              <button onClick={() => setSelected(null)} className="text-surface-400 hover:text-surface-600 text-xl">×</button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <span className={`inline-block text-xs font-medium px-2 py-1 rounded-lg ${STATUS_COLORS[selected.status] ?? STATUS_COLORS.scheduled}`}>
+                {STATUS_LABEL[selected.status] ?? selected.status}
+              </span>
+
+              <div>
+                <label className="block text-sm font-medium text-surface-600 mb-1">Data e horário</label>
+                <input
+                  type="datetime-local"
+                  className="input"
+                  value={editStartsAt}
+                  onChange={(e) => setEditStartsAt(e.target.value)}
+                />
+                <p className="text-xs text-surface-400 mt-1">Horário de Brasília. A duração é recalculada pelo serviço.</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-surface-600 mb-1">Observação</label>
+                <textarea
+                  className="input min-h-[90px] resize-none"
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  placeholder="Anotações sobre este agendamento..."
+                />
+              </div>
+
+              {saveError && <p className="text-sm text-red-500">{saveError}</p>}
+            </div>
+
+            <div className="px-6 py-4 border-t border-surface-200 flex justify-end gap-2">
+              <button onClick={() => setSelected(null)} className="btn-ghost text-sm">Cancelar</button>
+              <button onClick={handleSaveAppointment} disabled={saving} className="btn-primary text-sm disabled:opacity-60">
+                {saving ? 'Salvando...' : 'Salvar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
