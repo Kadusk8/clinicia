@@ -71,15 +71,38 @@ function withToolResults(content: string, toolCalls: unknown): string {
  * O modelo respondia com o texto inteiro (às vezes vários parágrafos) numa
  * única mensagem de WhatsApp — lido como um bloco de texto grande, nada
  * parecido com a forma como uma pessoa realmente conversa por lá. Quebra a
- * resposta em balões menores nas quebras de parágrafo (linha em branco) e
- * cada balão vira um envio separado, com uma pequena pausa entre eles pra
- * simular alguém digitando.
+ * resposta em balões menores nas quebras de parágrafo (linha em branco), e
+ * quando mesmo assim um parágrafo sozinho passa do limite de caracteres de um
+ * balão (o modelo nem sempre respeita "mensagens curtas" do prompt — pedir
+ * não é garantir), quebra também por frase. Cada balão final vira um envio
+ * separado, com uma pequena pausa entre eles pra simular alguém digitando.
  */
+const MAX_BUBBLE_CHARS = 220;
+
 function splitIntoWhatsAppMessages(text: string): string[] {
-  return text
-    .split(/\n{2,}/)
-    .map((chunk) => chunk.trim())
-    .filter(Boolean);
+  const paragraphs = text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  return paragraphs.flatMap((paragraph) =>
+    paragraph.length <= MAX_BUBBLE_CHARS ? [paragraph] : splitBySentence(paragraph),
+  );
+}
+
+function splitBySentence(paragraph: string): string[] {
+  // Mantém pontuação final ao separar (. ! ?) — sem isso a frase perde o ponto.
+  const sentences = paragraph.match(/[^.!?]+[.!?]+(\s+|$)|[^.!?]+$/g) ?? [paragraph];
+  const bubbles: string[] = [];
+  let current = '';
+  for (const raw of sentences) {
+    const sentence = raw.trim();
+    if (!sentence) continue;
+    if (current && current.length + 1 + sentence.length > MAX_BUBBLE_CHARS) {
+      bubbles.push(current);
+      current = sentence;
+    } else {
+      current = current ? `${current} ${sentence}` : sentence;
+    }
+  }
+  if (current) bubbles.push(current);
+  return bubbles;
 }
 
 function sleep(ms: number): Promise<void> {
