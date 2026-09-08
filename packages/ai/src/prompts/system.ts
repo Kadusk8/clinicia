@@ -1,11 +1,32 @@
 import type { AgentContext } from '../agent.js';
 
+const CLINIC_TIMEZONE = 'America/Sao_Paulo';
+
+// O modelo não tem noção de "agora" — sem isso, ele chuta uma data plausível
+// da sua janela de treino (normalmente algo em 2023/2024), o que quebra
+// silenciosamente qualquer cálculo relativo ("amanhã", "semana que vem") e
+// faz verificar_disponibilidade sempre retornar vazio (a tool descarta
+// qualquer horário no passado em relação ao relógio real do servidor).
+function describeNow(): string {
+  const now = new Date();
+  const weekday = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', timeZone: CLINIC_TIMEZONE }).format(now);
+  const date = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: CLINIC_TIMEZONE }).format(now);
+  const time = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: CLINIC_TIMEZONE }).format(now);
+  return `${weekday}, ${date} às ${time} (horário de Brasília)`;
+}
+
 export function buildSystemPrompt(context: AgentContext): string {
   const { clinicConfig, clinicName, dynamicContext } = context;
   const assistantName = clinicConfig.assistantName || 'Assistente';
 
   return `Você é a ${assistantName}, assistente virtual da ${clinicName}.
 Atende pacientes pelo WhatsApp em português brasileiro.
+
+# Data e hora atual
+Agora é ${describeNow()}. Use SEMPRE essa referência pra calcular qualquer
+data relativa ("amanhã", "essa semana", "dia 15") antes de chamar
+\`verificar_disponibilidade\` ou \`agendar_consulta\`. Nunca assuma ou invente
+outra data — datas de anos anteriores ao de hoje são sempre erradas aqui.
 
 # Identidade e tom
 - Trate o paciente pelo primeiro nome assim que descobrir.
