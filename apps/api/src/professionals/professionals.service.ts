@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { db, schema } from '@crm-clinicas/db';
 import { eq, and, desc, sql, inArray } from 'drizzle-orm';
-import { NotFoundError, type PaginationInput } from '@crm-clinicas/shared';
+import { NotFoundError, TenantMismatchError, type PaginationInput } from '@crm-clinicas/shared';
 
 type CreateInput = Omit<schema.NewProfessional, 'clinicId'> & { serviceIds?: string[] };
 type UpdateInput = Partial<Omit<schema.NewProfessional, 'clinicId'>> & { serviceIds?: string[] };
@@ -73,9 +73,27 @@ export class ProfessionalsService {
   }
 
   // undefined = não mexe nos vínculos (ex: PATCH de working-hours, que não envia serviceIds).
-  // [] explícito = desvincula de tudo.
-  private async syncServiceLinks(professionalId: string, serviceIds: string[] | undefined) {
+  // [] explícito = desvincula de tudo. Valida que todo serviceId pertence à mesma clínica
+  // antes de gravar — sem isso, um profissional de uma clínica poderia ser vinculado ao
+  // serviço de outra clínica (IDOR entre tenants).
+  private async syncServiceLinks(
+    clinicId: string,
+    professionalId: string,
+    serviceIds: string[] | undefined,
+  ) {
     if (serviceIds === undefined) return;
+
+    if (serviceIds.length > 0) {
+      const valid = await db
+        .select({ id: schema.services.id })
+        .from(schema.services)
+        .where(and(inArray(schema.services.id, serviceIds), eq(schema.services.clinicId, clinicId)));
+
+      if (valid.length !== new Set(serviceIds).size) {
+        throw new TenantMismatchError();
+      }
+    }
+
     await db
       .delete(schema.professionalServices)
       .where(eq(schema.professionalServices.professionalId, professionalId));
@@ -93,7 +111,7 @@ export class ProfessionalsService {
       .values({ ...rest, clinicId })
       .returning();
     const professional = result[0]!;
-    await this.syncServiceLinks(professional.id, serviceIds);
+    await this.syncServiceLinks(clinicId, professional.id, serviceIds);
     const [withServices] = await this.attachServiceIds([professional]);
     return withServices;
   }
@@ -123,7 +141,7 @@ export class ProfessionalsService {
     }
 
     if (!updated) throw new NotFoundError('Profissional', id);
-    await this.syncServiceLinks(id, serviceIds);
+    await this.syncServiceLinks(clinicId, id, serviceIds);
     const [withServices] = await this.attachServiceIds([updated]);
     return withServices;
   }
