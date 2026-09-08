@@ -2,6 +2,7 @@ import { ExternalServiceError } from '@crm-clinicas/shared';
 import type {
   SendTextParams,
   SendMediaParams,
+  SendPresenceParams,
   InstanceListItem,
   InstanceStatus,
   ConnectParams,
@@ -106,6 +107,15 @@ export class EvolutionClient {
 
   async sendMedia(params: SendMediaParams): Promise<{ key?: { id: string } }> {
     return this.request('POST', '/send/media', params);
+  }
+
+  /**
+   * Mostra "digitando..." pro contato. A própria Evolution Go mantém o
+   * indicador aceso pelo `delay` (ms) informado e depois manda "paused"
+   * sozinha — não precisa chamar de novo pra desligar.
+   */
+  async sendPresence(params: SendPresenceParams): Promise<void> {
+    await this.request('POST', '/message/presence', params);
   }
 
   /**

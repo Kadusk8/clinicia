@@ -109,6 +109,12 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// Tempo de "digitando..." proporcional ao tamanho do balão, pra parecer
+// alguém escrevendo de verdade em vez de um robô respondendo instantâneo.
+function typingDelayFor(text: string): number {
+  return Math.min(3000, Math.max(900, 700 + text.length * 12));
+}
+
 // ==========================================
 // Queues
 // ==========================================
@@ -320,9 +326,17 @@ const messageWorker = new Worker(
     const clinicEvolutionClient = new EvolutionClient(clinic.evolutionApiUrl, clinic.evolutionApiKey);
     const phone = patientPhone.replace(/\D/g, '');
     const bubbles = splitIntoWhatsAppMessages(result.response);
-    for (let i = 0; i < bubbles.length; i++) {
-      await clinicEvolutionClient.sendText({ number: phone, text: bubbles[i]! });
-      if (i < bubbles.length - 1) await sleep(1200);
+    for (const bubble of bubbles) {
+      const typingMs = typingDelayFor(bubble);
+      // "digitando..." é cosmético — se a Evolution Go rejeitar essa chamada,
+      // a mensagem real ainda tem que sair.
+      try {
+        await clinicEvolutionClient.sendPresence({ number: phone, state: 'composing', delay: typingMs });
+      } catch (e) {
+        console.error('Falha ao enviar indicador de "digitando" (ignorado):', (e as Error).message);
+      }
+      await sleep(typingMs);
+      await clinicEvolutionClient.sendText({ number: phone, text: bubble });
     }
     console.log(`✅ Agent reply sent to ${phone} in ${bubbles.length} message(s) (conversation: ${conversationId})`);
   },

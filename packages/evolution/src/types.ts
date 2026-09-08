@@ -16,6 +16,15 @@ export interface SendMediaParams {
   fileName?: string;
 }
 
+export interface SendPresenceParams {
+  number: string;
+  state: 'composing' | 'recording' | 'paused';
+  // ms que o indicador fica aceso — a Evolution Go manda "paused" sozinha
+  // depois desse tempo, reenviando "composing" periodicamente até lá.
+  delay?: number;
+  isAudio?: boolean;
+}
+
 export interface InstanceListItem {
   id: string; // UUID — identificador real da instância nas rotas admin
   name: string;
