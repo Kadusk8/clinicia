@@ -50,6 +50,13 @@
       "when": 1788327309767,
       "tag": "0006_agent_categories_and_mode",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788826346450,
+      "tag": "0007_kb_category_scope",
+      "breakpoints": true
     }
   ]
 }

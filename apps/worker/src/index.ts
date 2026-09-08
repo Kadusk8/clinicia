@@ -128,6 +128,7 @@ const messageWorker = new Worker(
 
     let systemPromptText = clinic.agentSystemPrompt;
     let knowledgeBaseText = clinic.agentKnowledgeBase;
+    let resolvedCategoryKey: string | null = null;
 
     if (clinic.agentMode === 'multi') {
       const activeCategories = await db
@@ -155,6 +156,7 @@ const messageWorker = new Worker(
       if (resolvedCategory) {
         systemPromptText = resolvedCategory.systemPrompt;
         knowledgeBaseText = resolvedCategory.knowledgeBase;
+        resolvedCategoryKey = resolvedCategory.key;
         if (conversation.categoryKey !== resolvedCategory.key) {
           await db
             .update(schema.conversations)
@@ -214,6 +216,7 @@ const messageWorker = new Worker(
         conversationId: ctx.conversationId,
         patientPhone: ctx.patientPhone,
         clinicConfig: ctx.clinicConfig,
+        categoryKey: resolvedCategoryKey,
       }),
     );
 
@@ -403,6 +406,7 @@ const embeddingWorker = new Worker(
           clinicId,
           content: chunk,
           embedding,
+          categoryKey: doc.categoryKey,
         });
         console.log(`  ✓ Chunk ${i + 1}/${chunks.length}`);
       } catch (err: any) {

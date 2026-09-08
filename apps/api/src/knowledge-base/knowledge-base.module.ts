@@ -18,5 +18,6 @@ import IORedis from 'ioredis';
         }),
     },
   ],
+  exports: [KnowledgeBaseService],
 })
 export class KnowledgeBaseModule {}

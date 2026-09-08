@@ -25,6 +25,9 @@ export const kbDocuments = pgTable('kb_documents', {
   title: varchar('title', { length: 255 }).notNull(),
   source: varchar('source', { length: 100 }), // upload | onboarding | manual
   content: text('content').notNull(),
+  // NULL = documento geral (visível a todas as categorias, único tipo usado em modo single).
+  // Preenchido = só entra na busca do agente daquela categoria (agent_categories.key).
+  categoryKey: text('category_key'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -41,6 +44,8 @@ export const kbChunks = pgTable(
       .notNull(),
     content: text('content').notNull(),
     embedding: vector('embedding'),
+    // Denormalizado do documento pai — evita join na busca por similaridade.
+    categoryKey: text('category_key'),
   },
   (t) => ({
     // HNSW index for fast cosine similarity search

@@ -50,6 +50,13 @@ interface AgentCategory {
   active: boolean;
 }
 
+interface KbDoc {
+  id: string;
+  title: string;
+  categoryKey: string | null;
+  createdAt: string;
+}
+
 export default function EditClinicPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -72,6 +79,11 @@ export default function EditClinicPage() {
   const [agentMode, setAgentMode] = useState<'single' | 'multi'>('single');
   const [categories, setCategories] = useState<AgentCategory[]>([]);
   const [newCategory, setNewCategory] = useState({ key: '', label: '' });
+  // RAG — base semântica (chunking + embeddings), geral e por categoria
+  const [kbGeneralDocs, setKbGeneralDocs] = useState<KbDoc[]>([]);
+  const [kbGeneralForm, setKbGeneralForm] = useState({ title: '', content: '' });
+  const [categoryDocs, setCategoryDocs] = useState<Record<string, KbDoc[]>>({});
+  const [categoryDocForm, setCategoryDocForm] = useState<Record<string, { title: string; content: string }>>({});
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('admin_token') : null;
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
@@ -91,6 +103,7 @@ export default function EditClinicPage() {
     fetch(`${API}/api/admin/clinics/${id}/stats`, { headers }).then((r) => r.json()).then(setStats);
     loadTriggers();
     loadCategories();
+    loadGeneralKb();
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadTriggers = async () => {
@@ -100,7 +113,54 @@ export default function EditClinicPage() {
 
   const loadCategories = async () => {
     const res = await fetch(`${API}/api/admin/clinics/${id}/agent-categories`, { headers });
-    setCategories(await res.json());
+    const cats: AgentCategory[] = await res.json();
+    setCategories(cats);
+    cats.forEach((c) => loadCategoryDocs(c.key));
+  };
+
+  // categoryKey null = documentos gerais (visíveis a todas as categorias)
+  const loadGeneralKb = async () => {
+    const res = await fetch(`${API}/api/admin/clinics/${id}/knowledge-base?categoryKey=`, { headers });
+    setKbGeneralDocs(await res.json());
+  };
+
+  const addGeneralKb = async () => {
+    if (!kbGeneralForm.title.trim() || !kbGeneralForm.content.trim()) return;
+    await fetch(`${API}/api/admin/clinics/${id}/knowledge-base`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ title: kbGeneralForm.title.trim(), content: kbGeneralForm.content.trim() }),
+    });
+    setKbGeneralForm({ title: '', content: '' });
+    loadGeneralKb();
+  };
+
+  const deleteGeneralKb = async (docId: string) => {
+    await fetch(`${API}/api/admin/clinics/${id}/knowledge-base/${docId}`, { method: 'DELETE', headers });
+    loadGeneralKb();
+  };
+
+  const loadCategoryDocs = async (categoryKey: string) => {
+    const res = await fetch(`${API}/api/admin/clinics/${id}/knowledge-base?categoryKey=${encodeURIComponent(categoryKey)}`, { headers });
+    const docs = await res.json();
+    setCategoryDocs((p) => ({ ...p, [categoryKey]: docs }));
+  };
+
+  const addCategoryDoc = async (categoryKey: string) => {
+    const form = categoryDocForm[categoryKey] ?? { title: '', content: '' };
+    if (!form.title.trim() || !form.content.trim()) return;
+    await fetch(`${API}/api/admin/clinics/${id}/knowledge-base`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ title: form.title.trim(), content: form.content.trim(), categoryKey }),
+    });
+    setCategoryDocForm((p) => ({ ...p, [categoryKey]: { title: '', content: '' } }));
+    loadCategoryDocs(categoryKey);
+  };
+
+  const deleteCategoryDoc = async (categoryKey: string, docId: string) => {
+    await fetch(`${API}/api/admin/clinics/${id}/knowledge-base/${docId}`, { method: 'DELETE', headers });
+    loadCategoryDocs(categoryKey);
   };
 
   const addTrigger = async () => {
@@ -333,9 +393,49 @@ export default function EditClinicPage() {
                 <div>
                   <label className="block text-sm font-medium text-surface-300 mb-1">Base de conhecimento</label>
                   <textarea value={agentForm.agentKnowledgeBase} onChange={(e) => setAgentForm((p) => ({ ...p, agentKnowledgeBase: e.target.value }))} className={`${inputCls} min-h-[120px]`} />
+                  <p className="text-xs text-surface-500 mt-1">Texto colado direto no prompt, sem busca — bom pra instruções curtas. Pra documentos grandes, use o RAG abaixo.</p>
                 </div>
               </>
             )}
+
+            <div className="border-t border-surface-800 pt-4">
+              <h3 className="text-sm font-semibold text-white mb-1">Base de conhecimento (RAG)</h3>
+              <p className="text-surface-500 text-xs mb-3">
+                Documentos aqui são divididos em trechos e indexados por busca semântica — o agente
+                consulta só o trecho relevante, em vez de ler tudo. São "gerais": aparecem pra IA em
+                qualquer categoria (modo múltiplos agentes) ou no agente único.
+              </p>
+              <div className="space-y-2 mb-3">
+                {kbGeneralDocs.length === 0 && <p className="text-surface-500 text-sm">Nenhum documento geral.</p>}
+                {kbGeneralDocs.map((doc) => (
+                  <div key={doc.id} className="flex items-center justify-between bg-surface-800 rounded-xl p-3">
+                    <div>
+                      <p className="text-white text-sm">📄 {doc.title}</p>
+                      <p className="text-surface-500 text-xs">{new Date(doc.createdAt).toLocaleDateString('pt-BR')}</p>
+                    </div>
+                    <button onClick={() => deleteGeneralKb(doc.id)} className="text-surface-500 hover:text-red-400 text-sm">Remover</button>
+                  </div>
+                ))}
+              </div>
+              <div className="bg-surface-800 rounded-xl p-4 space-y-2">
+                <input
+                  value={kbGeneralForm.title}
+                  onChange={(e) => setKbGeneralForm((p) => ({ ...p, title: e.target.value }))}
+                  className={inputCls}
+                  placeholder="Título (ex: Convênios aceitos)"
+                />
+                <textarea
+                  value={kbGeneralForm.content}
+                  onChange={(e) => setKbGeneralForm((p) => ({ ...p, content: e.target.value }))}
+                  className={`${inputCls} min-h-[90px]`}
+                  placeholder="Cole aqui o conteúdo do documento..."
+                />
+                <button onClick={addGeneralKb} className="px-4 py-2 bg-gradient-to-r from-red-600 to-orange-500 text-white text-sm font-semibold rounded-xl">
+                  + Adicionar documento
+                </button>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-surface-300 mb-1">Provedor LLM</label>
@@ -578,6 +678,40 @@ export default function EditClinicPage() {
                       defaultValue={c.knowledgeBase ?? ''}
                       onBlur={(e) => updateCategory(c.id, { knowledgeBase: e.target.value })}
                       className={`${inputCls} min-h-[90px]`}
+                    />
+                  </div>
+
+                  <div className="border-t border-surface-700 pt-3">
+                    <p className="text-xs font-medium text-surface-400 mb-2">
+                      Base semântica (RAG) — isolada, só entra na busca deste agente
+                    </p>
+                    <div className="space-y-2 mb-2">
+                      {(categoryDocs[c.key] ?? []).length === 0 && (
+                        <p className="text-surface-500 text-xs">Nenhum documento nesta categoria.</p>
+                      )}
+                      {(categoryDocs[c.key] ?? []).map((doc) => (
+                        <div key={doc.id} className="flex items-center justify-between bg-surface-900 rounded-lg p-2">
+                          <p className="text-white text-xs">📄 {doc.title}</p>
+                          <button onClick={() => deleteCategoryDoc(c.key, doc.id)} className="text-surface-500 hover:text-red-400 text-xs">Remover</button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        value={categoryDocForm[c.key]?.title ?? ''}
+                        onChange={(e) => setCategoryDocForm((p) => ({ ...p, [c.key]: { title: e.target.value, content: p[c.key]?.content ?? '' } }))}
+                        className={`${inputCls} text-sm`}
+                        placeholder="Título do documento"
+                      />
+                      <button onClick={() => addCategoryDoc(c.key)} className="px-3 py-2 bg-surface-700 hover:bg-surface-600 text-white text-xs font-semibold rounded-lg whitespace-nowrap">
+                        + Doc
+                      </button>
+                    </div>
+                    <textarea
+                      value={categoryDocForm[c.key]?.content ?? ''}
+                      onChange={(e) => setCategoryDocForm((p) => ({ ...p, [c.key]: { title: p[c.key]?.title ?? '', content: e.target.value } }))}
+                      className={`${inputCls} text-sm min-h-[70px] mt-2`}
+                      placeholder="Conteúdo do documento..."
                     />
                   </div>
                 </div>

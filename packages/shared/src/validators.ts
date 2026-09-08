@@ -67,6 +67,8 @@ export const adminUpdateAgentSchema = z.object({
 export const createKnowledgeBaseDocSchema = z.object({
   title: z.string().trim().min(1).max(255),
   content: z.string().trim().min(1),
+  // NULL/omitido = documento geral (visível a todas as categorias em modo multi).
+  categoryKey: z.string().trim().min(1).max(100).optional(),
 });
 
 export const adminUpdateWhatsAppSchema = z.object({

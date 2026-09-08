@@ -13,6 +13,7 @@ import {
   adminUpdateAgentModeSchema,
   adminCreateAgentCategorySchema,
   adminUpdateAgentCategorySchema,
+  createKnowledgeBaseDocSchema,
 } from '@crm-clinicas/shared';
 import { AdminService } from './admin.service';
 import { SuperAdminGuard } from './super-admin.guard';
@@ -218,5 +219,31 @@ export class AdminController {
   @UseGuards(SuperAdminGuard)
   async deleteAgentCategory(@Param('id') id: string, @Param('categoryId') categoryId: string) {
     return this.adminService.deleteAgentCategory(id, categoryId);
+  }
+
+  // ==========================================
+  // Base de Conhecimento (RAG)
+  // ==========================================
+  // categoryKey na query: omitido = todos os docs; "" (vazio) = só os gerais;
+  // valor = só os daquela categoria. O front usa "" pra representar "Geral".
+
+  @Get('clinics/:id/knowledge-base')
+  @UseGuards(SuperAdminGuard)
+  async listKnowledgeBase(@Param('id') id: string, @Query('categoryKey') categoryKey?: string) {
+    if (categoryKey === undefined) return this.adminService.listKnowledgeBase(id);
+    return this.adminService.listKnowledgeBase(id, categoryKey === '' ? null : categoryKey);
+  }
+
+  @Post('clinics/:id/knowledge-base')
+  @UseGuards(SuperAdminGuard)
+  async createKnowledgeBase(@Param('id') id: string, @Body() body: any) {
+    const data = createKnowledgeBaseDocSchema.parse(body);
+    return this.adminService.createKnowledgeBase(id, data);
+  }
+
+  @Delete('clinics/:id/knowledge-base/:docId')
+  @UseGuards(SuperAdminGuard)
+  async deleteKnowledgeBase(@Param('id') id: string, @Param('docId') docId: string) {
+    return this.adminService.deleteKnowledgeBase(id, docId);
   }
 }

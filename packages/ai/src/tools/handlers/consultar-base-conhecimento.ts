@@ -5,7 +5,7 @@ export async function consultarBaseConhecimento(
   input: { query: string },
   context: ToolContext,
 ): Promise<string> {
-  const results = await searchKnowledgeBase(context.clinicId, input.query, 5);
+  const results = await searchKnowledgeBase(context.clinicId, input.query, 5, context.categoryKey);
 
   if (results.length === 0) {
     return JSON.stringify({

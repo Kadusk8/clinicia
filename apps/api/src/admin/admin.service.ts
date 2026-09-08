@@ -1,10 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { db, schema } from '@crm-clinicas/db';
 import { eq, desc, sql, ilike, or, and } from 'drizzle-orm';
 import { NotFoundError } from '@crm-clinicas/shared';
 import { EvolutionClient } from '@crm-clinicas/evolution';
 import * as crypto from 'crypto';
 import { hashPassword as betterAuthHashPassword } from 'better-auth/crypto';
+import { KnowledgeBaseService } from '../knowledge-base/knowledge-base.service';
 
 function hashPassword(password: string): string {
   return crypto.createHash('sha256').update(password).digest('hex');
@@ -13,6 +14,8 @@ function hashPassword(password: string): string {
 @Injectable()
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
+
+  constructor(@Inject(KnowledgeBaseService) private readonly kbService: KnowledgeBaseService) {}
 
   // ==========================================
   // Super Admin Auth
@@ -410,12 +413,48 @@ export class AdminService {
   }
 
   async deleteAgentCategory(clinicId: string, categoryId: string) {
-    const result = await db
-      .delete(schema.agentCategories)
+    const [category] = await db
+      .select({ key: schema.agentCategories.key })
+      .from(schema.agentCategories)
       .where(and(eq(schema.agentCategories.id, categoryId), eq(schema.agentCategories.clinicId, clinicId)))
-      .returning({ id: schema.agentCategories.id });
+      .limit(1);
 
-    if (!result[0]) throw new NotFoundError('Categoria de agente', categoryId);
+    if (!category) throw new NotFoundError('Categoria de agente', categoryId);
+
+    // Base semântica (RAG) daquela categoria fica órfã sem a categoria — apaga junto.
+    const orphanDocs = await db
+      .select({ id: schema.kbDocuments.id })
+      .from(schema.kbDocuments)
+      .where(and(eq(schema.kbDocuments.clinicId, clinicId), eq(schema.kbDocuments.categoryKey, category.key)));
+    for (const doc of orphanDocs) {
+      await this.kbService.delete(clinicId, doc.id);
+    }
+
+    await db
+      .delete(schema.agentCategories)
+      .where(and(eq(schema.agentCategories.id, categoryId), eq(schema.agentCategories.clinicId, clinicId)));
+
+    return { deleted: true };
+  }
+
+  // ==========================================
+  // Base de Conhecimento (RAG) — chunking + embeddings reais
+  // ==========================================
+
+  // categoryKey: undefined = todos os docs da clínica; null = só gerais; string = só da categoria.
+  async listKnowledgeBase(clinicId: string, categoryKey?: string | null) {
+    return this.kbService.findAll(clinicId, categoryKey);
+  }
+
+  async createKnowledgeBase(
+    clinicId: string,
+    data: { title: string; content: string; categoryKey?: string | null },
+  ) {
+    return this.kbService.create(clinicId, data.title, data.content, 'manual', data.categoryKey);
+  }
+
+  async deleteKnowledgeBase(clinicId: string, docId: string) {
+    await this.kbService.delete(clinicId, docId);
     return { deleted: true };
   }
 

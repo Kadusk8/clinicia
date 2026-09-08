@@ -32,11 +32,18 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 
 /**
  * Searches the knowledge base for relevant chunks using cosine similarity.
+ *
+ * `categoryKey` scopes the search when the clinic runs in multi-agent mode:
+ * only chunks tagged with that category, plus "geral" chunks (category_key
+ * IS NULL, visible to every category), are considered. Omit it (undefined)
+ * to search across all of the clinic's chunks regardless of category —
+ * the behavior single-agent clinics always get, since they never tag docs.
  */
 export async function searchKnowledgeBase(
   clinicId: string,
   query: string,
   limit: number = 5,
+  categoryKey?: string | null,
 ): Promise<RagResult[]> {
   if (!process.env.OPENAI_API_KEY) {
     // RAG not configured — return empty gracefully
@@ -51,6 +58,9 @@ export async function searchKnowledgeBase(
   }
 
   const vectorStr = `[${embedding.join(',')}]`;
+  const categoryFilter = categoryKey
+    ? sql`AND (kc.category_key = ${categoryKey} OR kc.category_key IS NULL)`
+    : sql``;
 
   // Use raw SQL for pgvector cosine distance operator <=>
   const rows = await db.execute(sql`
@@ -62,6 +72,7 @@ export async function searchKnowledgeBase(
     JOIN kb_documents kd ON kd.id = kc.document_id
     WHERE kc.clinic_id = ${clinicId}::uuid
       AND kc.embedding IS NOT NULL
+      ${categoryFilter}
     ORDER BY kc.embedding <=> ${vectorStr}::vector
     LIMIT ${limit}
   `);
