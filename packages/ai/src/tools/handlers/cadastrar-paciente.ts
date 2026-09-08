@@ -6,6 +6,11 @@ export async function cadastrarPaciente(
   input: { phone: string; name: string; birthDate?: string; email?: string; insurance?: string },
   context: ToolContext,
 ): Promise<string> {
+  // Mesmo motivo do buscar_paciente: o telefone do cadastro tem que ser o número
+  // do WhatsApp da conversa, não o que o modelo inferiu ou o paciente digitou —
+  // senão o cadastro nasce com um telefone que nenhuma busca futura encontra.
+  const phone = context.patientPhone || input.phone;
+
   // Check if patient already exists
   const existing = await db
     .select()
@@ -13,7 +18,7 @@ export async function cadastrarPaciente(
     .where(
       and(
         eq(schema.patients.clinicId, context.clinicId),
-        eq(schema.patients.phone, input.phone),
+        eq(schema.patients.phone, phone),
       ),
     )
     .limit(1);
@@ -30,7 +35,7 @@ export async function cadastrarPaciente(
     .insert(schema.patients)
     .values({
       clinicId: context.clinicId,
-      phone: input.phone,
+      phone,
       name: input.name,
       birthDate: input.birthDate,
       email: input.email,

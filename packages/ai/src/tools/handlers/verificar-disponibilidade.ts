@@ -38,6 +38,17 @@ function brasiliaInstant(year: number, month: number, day: number, hour: number,
   return new Date(`${year}-${pad(month)}-${pad(day)}T${pad(hour)}:${pad(minute)}:00${CLINIC_UTC_OFFSET}`);
 }
 
+// O ISO devolvido é UTC; sem um rótulo pronto em horário de Brasília o modelo
+// lê a hora do ISO e oferece ao paciente um horário 3h adiantado (ex: anunciar
+// "18h" para um slot que na verdade é 15h).
+function brasiliaLabel(instant: Date): string {
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    weekday: 'long', day: '2-digit', month: '2-digit',
+    hour: '2-digit', minute: '2-digit',
+  }).format(instant);
+}
+
 interface ProfessionalToCheck {
   id: string;
   name: string;
@@ -164,12 +175,12 @@ export async function verificarDisponibilidade(
   const result: Array<{
     professionalId: string;
     professionalName: string;
-    slots: Array<{ startsAt: string; endsAt: string }>;
+    slots: Array<{ startsAt: string; endsAt: string; horarioBrasilia: string }>;
   }> = [];
 
   for (const prof of professionalsToCheck) {
     const profConflicts = conflicts.filter((c) => c.professionalId === prof.id);
-    const slots: Array<{ startsAt: string; endsAt: string }> = [];
+    const slots: Array<{ startsAt: string; endsAt: string; horarioBrasilia: string }> = [];
 
     let cursorInstant = fromDate;
 
@@ -205,7 +216,11 @@ export async function verificarDisponibilidade(
             googleBusyIntervals.some((b) => b.start < slotEnd && b.end > slotStart);
 
           if (!hasConflict) {
-            slots.push({ startsAt: slotStart.toISOString(), endsAt: slotEnd.toISOString() });
+            slots.push({
+              startsAt: slotStart.toISOString(),
+              endsAt: slotEnd.toISOString(),
+              horarioBrasilia: brasiliaLabel(slotStart),
+            });
           }
 
           slotStart = slotEnd;

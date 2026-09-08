@@ -34,6 +34,40 @@ const TEMPLATES: Record<string, (name: string, clinic: string, date: string, ser
 };
 
 // ==========================================
+// Reidratação de tool results no histórico
+// ==========================================
+
+const MAX_TOOL_RESULT_CHARS = 900;
+
+type PersistedToolCall = { name: string; input: Record<string, unknown>; result: string };
+
+/**
+ * Recoloca no texto da mensagem do agente os resultados das tools daquele turno.
+ * A conversa é reconstruída do banco a cada mensagem nova, e a coluna tool_calls
+ * ficava de fora — então tudo que uma tool devolveu (UUIDs de paciente, serviço e
+ * profissional, horários disponíveis) sumia do contexto no turno seguinte, e o
+ * modelo acabava chutando esses valores na hora de agendar.
+ */
+function withToolResults(content: string, toolCalls: unknown): string {
+  if (!Array.isArray(toolCalls) || toolCalls.length === 0) return content;
+
+  const lines = (toolCalls as PersistedToolCall[])
+    .filter((c) => c && typeof c.name === 'string')
+    .map((c) => {
+      const result = typeof c.result === 'string' ? c.result : JSON.stringify(c.result);
+      const trimmed = result.length > MAX_TOOL_RESULT_CHARS
+        ? `${result.slice(0, MAX_TOOL_RESULT_CHARS)}…(truncado)`
+        : result;
+      return `- ${c.name}(${JSON.stringify(c.input)}) → ${trimmed}`;
+    });
+
+  if (lines.length === 0) return content;
+
+  return `${content}\n\n[Ferramentas que você já executou neste atendimento e o que elas retornaram. ` +
+    `Reutilize estes IDs exatos — não invente nem reescreva nenhum:\n${lines.join('\n')}]`;
+}
+
+// ==========================================
 // Queues
 // ==========================================
 
@@ -101,11 +135,17 @@ const messageWorker = new Worker(
     const rawMessages = allMessages.slice(0, 20).reverse();
 
     // 3. Map roles for the agent
+    // Os resultados das tools precisam voltar pro contexto junto com o texto da
+    // resposta: cada mensagem nova do paciente é uma invocação nova do agente, e
+    // sem isso o modelo perde todo o retorno de tool do turno anterior — inclusive
+    // os UUIDs de paciente/serviço/profissional. Era essa a causa dele "inventar"
+    // ids (ex: "dr-marcel", "kadu_patient_id"): o valor certo simplesmente não
+    // estava mais no contexto na hora de agendar.
     const recentMessages = rawMessages
       .filter((m) => m.role === 'patient' || m.role === 'agent')
       .map((m) => ({
         role: m.role === 'agent' ? ('assistant' as const) : ('user' as const),
-        content: m.content,
+        content: m.role === 'agent' ? withToolResults(m.content, m.toolCalls) : m.content,
       }));
 
     // 4. Build AgentContext and Memory Window

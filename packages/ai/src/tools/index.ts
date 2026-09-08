@@ -106,7 +106,12 @@ export const agentTools = [
   },
   {
     name: 'verificar_disponibilidade',
-    description: 'Retorna horários livres para um serviço num período.',
+    description: 'Retorna horários livres para um serviço num período. Cada slot vem com ' +
+      '`horarioBrasilia` (já formatado no fuso da clínica) e `startsAt` (ISO em UTC). ' +
+      'Ao falar com o paciente use SEMPRE o `horarioBrasilia` — nunca leia a hora do ' +
+      '`startsAt`, que está em UTC e está 3h adiantado. Ao chamar agendar_consulta, passe ' +
+      'o `startsAt` exatamente como veio aqui. O resultado também traz o `professionalId` ' +
+      'que deve ser usado no agendamento.',
     input_schema: {
       type: 'object' as const,
       properties: {
