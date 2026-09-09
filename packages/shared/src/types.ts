@@ -43,10 +43,13 @@ export const FOLLOW_UP_TYPES = [
   'post_visit',
   'reactivation',
   'no_show',
+  'reengagement',
 ] as const;
 export type FollowUpType = (typeof FOLLOW_UP_TYPES)[number];
 
-export const FOLLOW_UP_STATUSES = ['pending', 'sent', 'failed', 'cancelled'] as const;
+// 'queued' = claim atômica do scanner antes de enfileirar no BullMQ (evita
+// disparo duplo quando o scanner roda de novo antes do worker processar).
+export const FOLLOW_UP_STATUSES = ['pending', 'queued', 'sent', 'failed', 'cancelled'] as const;
 export type FollowUpStatus = (typeof FOLLOW_UP_STATUSES)[number];
 
 export const PLAN_TYPES = ['trial', 'starter', 'pro', 'enterprise'] as const;

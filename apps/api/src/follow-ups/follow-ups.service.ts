@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { db, schema } from '@crm-clinicas/db';
-import { eq, and, lte, desc, sql } from 'drizzle-orm';
+import { eq, and, lte, desc, sql, inArray } from 'drizzle-orm';
 
 // Follow-up message templates
 const TEMPLATES: Record<string, (patientName: string, clinicName: string, date: string, service: string) => string> = {
@@ -37,13 +37,15 @@ export class FollowUpsService {
   }
 
   async findPending(clinicId: string) {
+    // 'queued' = já reivindicado pelo scanner, ainda não processado — sem
+    // incluir aqui, uma linha em voo some da lista por alguns segundos.
     return db
       .select()
       .from(schema.followUps)
       .where(
         and(
           eq(schema.followUps.clinicId, clinicId),
-          eq(schema.followUps.status, 'pending'),
+          inArray(schema.followUps.status, ['pending', 'queued']),
         ),
       )
       .orderBy(schema.followUps.scheduledFor);

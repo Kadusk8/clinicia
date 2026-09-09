@@ -1,53 +1,13 @@
 import { db, schema } from '@crm-clinicas/db';
 import { and, eq, inArray, lt, gt } from 'drizzle-orm';
-import type { WorkingHours, DayOfWeek } from '@crm-clinicas/shared';
+import type { WorkingHours } from '@crm-clinicas/shared';
+import { brasiliaDateParts, brasiliaInstant, brasiliaLabel } from '@crm-clinicas/shared';
 import type { ToolContext } from '../context.js';
 import { getGoogleBusyIntervals } from '../../google-calendar-sync.js';
 import { invalidIdError } from '../validate.js';
 
 const MAX_DAYS = 30;
 const MAX_SLOTS_PER_PROFESSIONAL = 10;
-
-// workingHours é sempre horário de Brasília ("08:00" etc.), mas o processo
-// roda em UTC em produção — Date#getHours/getDay/setHours usam o timezone
-// do processo, não o da clínica, então precisam ficar longe dessa conta.
-// Brasil não tem mais horário de verão desde 2019, então -03:00 é um offset
-// fixo seguro pra São Paulo.
-const CLINIC_UTC_OFFSET = '-03:00';
-const WEEKDAY_BY_SHORT_NAME: Record<string, DayOfWeek> = {
-  Sun: 'sun', Mon: 'mon', Tue: 'tue', Wed: 'wed', Thu: 'thu', Fri: 'fri', Sat: 'sat',
-};
-
-function brasiliaDateParts(instant: Date): { year: number; month: number; day: number; weekday: DayOfWeek } {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Sao_Paulo',
-    year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short',
-  }).formatToParts(instant);
-  const get = (type: string) => parts.find((p) => p.type === type)!.value;
-  return {
-    year: Number(get('year')),
-    month: Number(get('month')),
-    day: Number(get('day')),
-    weekday: WEEKDAY_BY_SHORT_NAME[get('weekday')]!,
-  };
-}
-
-// Instante UTC correspondente a HH:MM naquele dia, em horário de Brasília.
-function brasiliaInstant(year: number, month: number, day: number, hour: number, minute: number): Date {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return new Date(`${year}-${pad(month)}-${pad(day)}T${pad(hour)}:${pad(minute)}:00${CLINIC_UTC_OFFSET}`);
-}
-
-// O ISO devolvido é UTC; sem um rótulo pronto em horário de Brasília o modelo
-// lê a hora do ISO e oferece ao paciente um horário 3h adiantado (ex: anunciar
-// "18h" para um slot que na verdade é 15h).
-function brasiliaLabel(instant: Date): string {
-  return new Intl.DateTimeFormat('pt-BR', {
-    timeZone: 'America/Sao_Paulo',
-    weekday: 'long', day: '2-digit', month: '2-digit',
-    hour: '2-digit', minute: '2-digit',
-  }).format(instant);
-}
 
 interface ProfessionalToCheck {
   id: string;

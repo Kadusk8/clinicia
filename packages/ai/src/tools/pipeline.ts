@@ -1,5 +1,6 @@
 import { db, schema } from '@crm-clinicas/db';
 import { and, desc, eq } from 'drizzle-orm';
+import { cancelReengagementSequence } from '../follow-up/schedule.js';
 
 /**
  * O CRUD do pipeline (aba "Pipeline"/Kanban do CRM) sempre existiu, mas nada no
@@ -50,6 +51,13 @@ export async function markDealScheduled(
   serviceId: string,
   valueCents: number | null,
 ): Promise<void> {
+  // Agendamento confirmado encerra a sequência de re-engajamento desse
+  // paciente — não faz sentido continuar "cutucando" pra agendar quem já
+  // agendou. markDealScheduled é o ponto único já chamado tanto pelo agente
+  // (agendar-consulta.ts) quanto pelo CRM manual (appointments.service.ts),
+  // então isso cobre os dois caminhos de uma vez.
+  await cancelReengagementSequence({ patientId }, 'appointment_scheduled');
+
   const [openDeal] = await db
     .select({ id: schema.deals.id, stage: schema.deals.stage })
     .from(schema.deals)

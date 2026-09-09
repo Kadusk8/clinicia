@@ -3,6 +3,7 @@ import { db, schema } from '@crm-clinicas/db';
 import { and, eq, sql } from 'drizzle-orm';
 import type { Queue } from 'bullmq';
 import type { WebhookPayload, WebhookMessageData, WebhookConnectionData } from '@crm-clinicas/evolution';
+import { cancelReengagementSequence } from '@crm-clinicas/ai';
 
 @Injectable()
 export class WebhooksService {
@@ -106,6 +107,13 @@ export class WebhooksService {
         updatedAt: new Date(),
       })
       .where(eq(schema.conversations.id, conversationId));
+
+    // Paciente respondeu — encerra qualquer follow-up de re-engajamento
+    // pendente dessa conversa. Tem que ser aqui (não no messageWorker):
+    // messageWorker só roda quando a conversa já está agent_active, e uma
+    // conversa human_active/closed nunca chegaria a cancelar seus follow-ups.
+    // Esta rota processa toda mensagem recebida, sempre.
+    await cancelReengagementSequence({ conversationId }, 'patient_replied');
 
     // 4. Gate: conversas nascem human_active. Só viram agent_active quando a
     // mensagem bate com um gatilho de ativação da clínica — fail-safe pra

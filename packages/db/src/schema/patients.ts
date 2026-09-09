@@ -31,6 +31,12 @@ export const patients = pgTable(
     complaintSummary: text('complaint_summary'),
     lgpdConsent: boolean('lgpd_consent').default(false),
     lgpdConsentAt: timestamp('lgpd_consent_at'),
+    // Pedido explícito de "para de mandar mensagem" — só afeta a sequência
+    // de re-engajamento (follow_ups.type='reengagement'). Deliberadamente
+    // não mexe em lembrete de consulta: quem pediu pra parar de ser
+    // "cutucado" pra agendar não pode perder o lembrete da consulta que já
+    // tem marcada.
+    reengagementOptOut: boolean('reengagement_opt_out').default(false).notNull(),
     createdAt: timestamp('created_at').defaultNow(),
     updatedAt: timestamp('updated_at').defaultNow(),
   },

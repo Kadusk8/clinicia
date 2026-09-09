@@ -3,6 +3,7 @@ import { db, schema } from '@crm-clinicas/db';
 import { eq, and, desc, sql, getTableColumns } from 'drizzle-orm';
 import { NotFoundError, type PaginationInput } from '@crm-clinicas/shared';
 import { EvolutionClient } from '@crm-clinicas/evolution';
+import { cancelReengagementSequence } from '@crm-clinicas/ai';
 
 @Injectable()
 export class ConversationsService {
@@ -111,11 +112,17 @@ export class ConversationsService {
       })
       .where(eq(schema.conversations.id, data.conversationId));
 
+    // Atendente humano escrevendo direto no CRM — não pode competir com a
+    // sequência automática de re-engajamento na mesma conversa.
+    if (data.role === 'staff' && data.conversationId) {
+      await cancelReengagementSequence({ conversationId: data.conversationId }, 'staff_message');
+    }
+
     return result[0]!;
   }
 
   async takeover(clinicId: string, conversationId: string, userId: string) {
-    return db
+    const result = await db
       .update(schema.conversations)
       .set({
         status: 'human_active',
@@ -129,6 +136,10 @@ export class ConversationsService {
         ),
       )
       .returning();
+
+    await cancelReengagementSequence({ conversationId }, 'staff_takeover');
+
+    return result;
   }
 
   async returnToAgent(clinicId: string, conversationId: string) {

@@ -62,7 +62,7 @@ async function classifyWithAnthropic(
   return textBlock?.text ?? '';
 }
 
-function buildOpenAIClient(provider: string, apiKey: string): OpenAI {
+export function buildOpenAIClient(provider: string, apiKey: string): OpenAI {
   switch (provider) {
     case 'openai':
       return new OpenAI({ apiKey });
