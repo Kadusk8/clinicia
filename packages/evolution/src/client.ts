@@ -3,6 +3,7 @@ import type {
   SendTextParams,
   SendMediaParams,
   SendPresenceParams,
+  SendLocationParams,
   InstanceListItem,
   InstanceStatus,
   ConnectParams,
@@ -116,6 +117,10 @@ export class EvolutionClient {
    */
   async sendPresence(params: SendPresenceParams): Promise<void> {
     await this.request('POST', '/message/presence', params);
+  }
+
+  async sendLocation(params: SendLocationParams): Promise<{ key?: { id: string } }> {
+    return this.request('POST', '/send/location', params);
   }
 
   /**

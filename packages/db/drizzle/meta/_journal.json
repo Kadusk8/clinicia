@@ -64,6 +64,13 @@
       "when": 1788837345722,
       "tag": "0008_professional_speciality_255",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788924025263,
+      "tag": "0009_clinic_locations",
+      "breakpoints": true
     }
   ]
 }

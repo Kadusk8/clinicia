@@ -7,6 +7,7 @@ import { cancelarOuRemarcar } from './handlers/cancelar-ou-remarcar.js';
 import { registrarAnotacaoCrm } from './handlers/registrar-anotacao-crm.js';
 import { transferirHumano } from './handlers/transferir-humano.js';
 import { consultarBaseConhecimento } from './handlers/consultar-base-conhecimento.js';
+import { enviarLocalizacao } from './handlers/enviar-localizacao.js';
 import type { ToolContext } from './context.js';
 
 export type { ToolContext };
@@ -54,6 +55,8 @@ export async function executeToolCall(
         );
       case 'consultar_base_conhecimento':
         return await consultarBaseConhecimento(input as { query: string }, context);
+      case 'enviar_localizacao':
+        return await enviarLocalizacao(input as { local: string }, context);
       default:
         return JSON.stringify({ error: `Tool desconhecida: ${name}` });
     }
@@ -204,6 +207,23 @@ export const agentTools = [
         query: { type: 'string' as const, description: 'Pergunta para buscar na base' },
       },
       required: ['query'],
+    },
+  },
+  {
+    name: 'enviar_localizacao',
+    description: 'Envia pro paciente um pin de localização (mapa nativo do WhatsApp) de um ' +
+      'endereço da clínica, ex: a sede principal ou um hospital parceiro onde algum ' +
+      'procedimento acontece. Use quando o paciente pedir o endereço, perguntar "onde fica" ' +
+      'ou "como chego", ou depois de confirmar um agendamento num local que vale a pena ' +
+      'mandar o mapa. O parâmetro `local` é a chave do local (ex: "clinica", ' +
+      '"hospital_encore") — se não souber a chave exata, chame mesmo assim com o nome que ' +
+      'o paciente usou; a tool retorna a lista de chaves válidas se não encontrar.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        local: { type: 'string' as const, description: 'Chave ou nome do local a enviar' },
+      },
+      required: ['local'],
     },
   },
 ];

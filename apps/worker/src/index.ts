@@ -338,6 +338,32 @@ const messageWorker = new Worker(
       await sleep(typingMs);
       await clinicEvolutionClient.sendText({ number: phone, text: bubble });
     }
+
+    // enviar_localizacao não é texto — é um pin de mapa nativo do WhatsApp.
+    // A tool só resolve/valida o local; o envio de verdade acontece aqui,
+    // depois dos balões de texto, igual uma pessoa mandaria "olha o mapa"
+    // e só depois soltaria o pin.
+    for (const call of result.toolCalls) {
+      if (call.name !== 'enviar_localizacao') continue;
+      let parsed: { success?: boolean; location?: { label: string; address: string; lat: number; lng: number } };
+      try {
+        parsed = JSON.parse(call.result);
+      } catch {
+        continue;
+      }
+      if (!parsed.success || !parsed.location) continue;
+      try {
+        await clinicEvolutionClient.sendLocation({
+          number: phone,
+          latitude: parsed.location.lat,
+          longitude: parsed.location.lng,
+          name: parsed.location.label,
+          address: parsed.location.address,
+        });
+      } catch (e) {
+        console.error('Falha ao enviar localização:', (e as Error).message);
+      }
+    }
     console.log(`✅ Agent reply sent to ${phone} in ${bubbles.length} message(s) (conversation: ${conversationId})`);
   },
   { connection, concurrency: 5, limiter: { max: 10, duration: 1000 } },

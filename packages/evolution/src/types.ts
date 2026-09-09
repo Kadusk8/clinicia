@@ -25,6 +25,14 @@ export interface SendPresenceParams {
   isAudio?: boolean;
 }
 
+export interface SendLocationParams {
+  number: string;
+  latitude: number;
+  longitude: number;
+  name?: string; // nome do local (ex: "Hospital Encore")
+  address?: string;
+}
+
 export interface InstanceListItem {
   id: string; // UUID — identificador real da instância nas rotas admin
   name: string;

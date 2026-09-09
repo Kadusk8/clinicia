@@ -10,6 +10,13 @@ export const clinics = pgTable('clinics', {
   email: varchar('email', { length: 255 }),
   address: varchar('address', { length: 500 }),
 
+  // Locais que a IA pode enviar como pin de localização no WhatsApp — a
+  // clínica, mas também outros endereços onde o atendimento acontece (ex:
+  // um hospital parceiro para procedimentos específicos). key é o
+  // identificador que a tool enviar_localizacao recebe.
+  locations: jsonb('locations').default([]).notNull(),
+  // locations shape: [{ key, label, address, lat, lng }]
+
   // WhatsApp / Evolution API (managed by super admin or clinic)
   whatsappInstanceName: varchar('whatsapp_instance_name', { length: 100 }),
   evolutionApiUrl: varchar('evolution_api_url', { length: 255 }),
