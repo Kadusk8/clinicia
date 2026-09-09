@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function AdminLoginPage() {
@@ -9,6 +9,15 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [expiredNotice, setExpiredNotice] = useState(false);
+
+  // Lido do location em vez de useSearchParams pra não forçar essa página
+  // (hoje estática) a virar dynamic rendering só por causa desse aviso.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('expired') === '1') {
+      setExpiredNotice(true);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,6 +72,12 @@ export default function AdminLoginPage() {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="glass-dark rounded-2xl p-8 space-y-5">
+          {expiredNotice && !error && (
+            <div className="p-3 bg-amber-500/20 border border-amber-500/30 rounded-xl text-amber-300 text-sm">
+              Sua sessão expirou (dura 8h). Faça login novamente.
+            </div>
+          )}
+
           {error && (
             <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-xl text-red-300 text-sm">
               {error}

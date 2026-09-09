@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { adminFetch } from '@/lib/admin-api';
 
 interface Clinic {
   id: string;
@@ -17,25 +18,25 @@ interface Clinic {
   createdAt: string;
 }
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-
 export default function ClinicsListPage() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const fetchClinics = async (q?: string) => {
-    const token = localStorage.getItem('admin_token');
+    setError('');
     const params = q ? `?search=${encodeURIComponent(q)}` : '';
-    const res = await fetch(`${API}/api/admin/clinics${params}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = await res.json();
-    if (Array.isArray(data)) {
-      setClinics(data);
-    } else {
+    const res = await adminFetch(`/api/admin/clinics${params}`);
+    if (res.status === 401) return; // adminFetch já redirecionou pro login
+    if (!res.ok) {
+      setError('Não foi possível carregar as clínicas. Tente novamente.');
       setClinics([]);
+      setLoading(false);
+      return;
     }
+    const data = await res.json();
+    setClinics(Array.isArray(data) ? data : []);
     setLoading(false);
   };
 
@@ -49,31 +50,23 @@ export default function ClinicsListPage() {
   const handleSuspend = async (id: string) => {
     const reason = prompt('Motivo da suspensão:');
     if (!reason) return;
-    const token = localStorage.getItem('admin_token');
-    await fetch(`${API}/api/admin/clinics/${id}/suspend`, {
+    await adminFetch(`/api/admin/clinics/${id}/suspend`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reason }),
     });
     fetchClinics();
   };
 
   const handleReactivate = async (id: string) => {
-    const token = localStorage.getItem('admin_token');
-    await fetch(`${API}/api/admin/clinics/${id}/reactivate`, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    await adminFetch(`/api/admin/clinics/${id}/reactivate`, { method: 'PUT' });
     fetchClinics();
   };
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Tem certeza que deseja EXCLUIR "${name}" e todos os dados? Esta ação é irreversível!`)) return;
-    const token = localStorage.getItem('admin_token');
-    const res = await fetch(`${API}/api/admin/clinics/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const res = await adminFetch(`/api/admin/clinics/${id}`, { method: 'DELETE' });
+    if (res.status === 401) return;
     if (!res.ok) {
       const e = await res.json().catch(() => ({} as any));
       alert(`Erro ao excluir: ${e.message || e.error?.message || res.status}`);
@@ -126,6 +119,12 @@ export default function ClinicsListPage() {
               <tr>
                 <td colSpan={6} className="text-center py-16 text-surface-500">
                   Carregando...
+                </td>
+              </tr>
+            ) : error ? (
+              <tr>
+                <td colSpan={6} className="text-center py-16 text-red-400">
+                  {error}
                 </td>
               </tr>
             ) : clinics.length === 0 ? (
